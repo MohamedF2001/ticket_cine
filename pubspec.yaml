@@ -1,0 +1,49 @@
+name: ticket_cine
+description: "A new Flutter project."
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.7.2
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  http: ^1.4.0
+  shared_preferences: ^2.5.3
+  crypto: ^3.0.6
+  persistent_bottom_nav_bar: ^6.2.1
+  shimmer: ^3.0.0
+  barcode_scan2: ^4.5.1
+  pdf: ^3.11.3
+  printing: ^5.14.2
+  path_provider: ^2.1.5
+  barcode_widget: ^2.0.4
+  animate_do: ^4.2.0
+  logger: ^2.5.0
+  flutter_size: ^1.0.1
+  flutter_spinkit: ^5.2.1
+  flutter_rating_bar: ^4.0.1
+  youtube_player_flutter: ^9.1.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+
+  fonts:
+    - family: Poppins
+      fonts:
+        - asset: assets/fonts/Poppins-Regular.otf
+        - asset: assets/fonts/Poppins-Bold.otf
+        - asset: assets/fonts/Poppins-Light.otf
+        - asset: assets/fonts/Poppins-Medium.otf
+          weight: 900
+        - asset: assets/fonts/Poppins-Italic.otf
+          style: italic
