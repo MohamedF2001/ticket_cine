@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:ticket_cine/views/splash_screen.dart';
 import 'package:logger/logger.dart';
+import 'package:ticket_cine/views/splash_screen_new.dart';
 
 Logger log = Logger();
 
@@ -32,7 +33,8 @@ class MyApp extends StatelessWidget {
       ),
       home:
           //SeatSelectionPage(),
-          const SplashScreen(),
+          //const SplashScreen(),
+      const SplashScreenNew(),
       debugShowCheckedModeBanner: false,
     );
   }
