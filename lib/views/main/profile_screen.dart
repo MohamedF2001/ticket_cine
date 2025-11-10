@@ -250,7 +250,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                       // Version
                       Text(
-                        'MoviePass v1.0.0',
+                        'CinéBook v1.0.0',
                         //style: Theme.of(context).textTheme.bodySmall,
                         style: TextStyle(
                             fontWeight: FontWeight.w400,

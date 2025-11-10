@@ -136,7 +136,7 @@ class _SplashScreenNewState extends State<SplashScreenNew>
                   shaderCallback: (bounds) => AppTheme.primaryGradient
                       .createShader(bounds),
                   child: Text(
-                    'MoviePass',
+                    'CinéBook',
                     style: Theme.of(context).textTheme.displayLarge?.copyWith(
                       fontSize: 25,
                       color: Colors.white,

@@ -52,7 +52,7 @@ class _MoviesScreenState extends State<MoviesScreen> {
                   shaderCallback: (bounds) =>
                       AppTheme.primaryGradient.createShader(bounds),
                   child: Text(
-                    'MoviePass',
+                    'CinéBook',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,

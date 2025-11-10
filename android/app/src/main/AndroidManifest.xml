@@ -2,7 +2,7 @@
     <application
         android:label="ticket_cine"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/cinema">
         <activity
             android:name=".MainActivity"
             android:exported="true"

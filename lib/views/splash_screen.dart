@@ -90,7 +90,7 @@ class _SplashScreenState extends State<SplashScreen>
               Image.asset('assets/images/cinema.png', width: 150),
               const SizedBox(height: 30),
               const Text(
-                'MoviePass',
+                'CinéBook',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 24,

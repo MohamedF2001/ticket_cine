@@ -125,7 +125,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const SizedBox(height: 8),
 
                   Text(
-                    'Rejoignez MoviePass',
+                    'Rejoignez CinéBook',
                     //style: Theme.of(context).textTheme.bodyMedium,
                     style: TextStyle(
                       fontSize: 14,
