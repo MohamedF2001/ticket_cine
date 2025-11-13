@@ -3,6 +3,7 @@ import 'package:ticket_cine/services/auth_service.dart';
 
 import '../../theme/app_theme.dart';
 import '../main/home_navigation_screen.dart';
+import 'login_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -257,7 +258,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                       ),
                       TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
+                        onPressed: () {
+                          Navigator.of(context).pushReplacement(
+                            MaterialPageRoute(
+                              builder: (_) => const LoginScreen(),
+                            ),
+                          );
+                        },
                         child: const Text(
                           'Se connecter',
                           style: TextStyle(
