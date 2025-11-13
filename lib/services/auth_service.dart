@@ -7,7 +7,7 @@ import 'package:ticket_cine/models/user_model.dart';
 class AuthService {
   //static const String baseUrl = 'http://localhost:3000';
   // ip a rabtech
-  static const String baseUrl = 'http://192.168.1.8:3000';
+  //static const String baseUrl = 'http://192.168.1.8:3000';
   static const String onlineUrl = 'https://cinema-api-chi.vercel.app';
   // ip chez moi
   //static const String baseUrl = 'http://192.168.0.102:3000';

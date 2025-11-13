@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:ticket_cine/models/user_model.dart';
 import 'package:ticket_cine/views/main/sessions_screen.dart';
 import 'package:ticket_cine/views/main/profile_screen.dart';
@@ -31,6 +32,12 @@ class _HomeNavigationScreenState extends State<HomeNavigationScreen> {
       ProfileScreen(user: widget.user),
     ];
   }
+
+  Future<bool> requestStoragePermission() async {
+    var status = await Permission.storage.request();
+    return status.isGranted;
+  }
+
 
   @override
   Widget build(BuildContext context) {
