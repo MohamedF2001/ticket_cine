@@ -91,11 +91,72 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ],
                   ),
-                  child: Column(
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: AppTheme.primaryGradient,
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppTheme.primaryColor.withOpacity(0.3),
+                              blurRadius: 20,
+                              spreadRadius: 5,
+                            ),
+                          ],
+                        ),
+                        child: Center(
+                          child: Text(
+                            '${widget.user.prenom[0]}${widget.user.nom[0]}',
+                            style: Theme.of(context)
+                                .textTheme
+                                .displayMedium
+                                ?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 12,),
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Nom complet
+                          Text(
+                            '${widget.user.prenom} ${widget.user.nom}',
+                            //style: Theme.of(context).textTheme.headlineMedium,
+                            style: TextStyle(
+                                fontWeight: FontWeight.w400,
+                                fontSize: 28,
+                                letterSpacing: 0.24,
+                                color: Colors.white
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          // Numéro
+                          Text(
+                            widget.user.numero,
+                            //style: Theme.of(context).textTheme.bodyMedium,
+                            style:TextStyle(
+                                fontWeight: FontWeight.w400,
+                                fontSize: 14,
+                                letterSpacing: 0.25,
+                                color: Colors.white
+                            ),
+                          ),
+                        ],
+                      )
+                    ],
+                  ),
+
+                  /*Column(
                     children: [
                       // Avatar
                       Container(
-                        width: 100,
+                        width: MediaQuery.of(context).size.width,
                         height: 100,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
@@ -148,7 +209,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                       ),
                     ],
-                  ),
+                  ),*/
                 ),
 
                 // Options du menu

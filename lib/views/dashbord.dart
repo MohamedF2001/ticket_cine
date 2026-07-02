@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:persistent_bottom_nav_bar/persistent_bottom_nav_bar.dart';
-import 'package:ticket_cine/main.dart';
+import 'package:ticket_cine/theme/app_theme.dart';
 import 'package:ticket_cine/models/user_model.dart';
 import 'package:ticket_cine/views/le_ticket.dart';
 import 'package:ticket_cine/services/auth_service.dart';
@@ -71,26 +71,25 @@ class _HomeNavigationState extends State<HomeNavigation> {
   ];
 
   List<PersistentBottomNavBarItem> _navBarsItems() => [
-    PersistentBottomNavBarItem(
-      icon: Icon(Icons.movie),
-      title: ("Films du moment"),
-      activeColorPrimary: Colors.white,
-      inactiveColorPrimary: Colors.grey.shade700,
-    ),
-
-    PersistentBottomNavBarItem(
-      icon: Icon(Icons.schedule),
-      title: ("Séances"),
-      activeColorPrimary: Colors.white,
-      inactiveColorPrimary: Colors.grey.shade700,
-    ),
-    PersistentBottomNavBarItem(
-      icon: Icon(Icons.bookmark),
-      title: ("Mes réservations"),
-      activeColorPrimary: Colors.white,
-      inactiveColorPrimary: Colors.grey.shade700,
-    ),
-  ];
+        PersistentBottomNavBarItem(
+          icon: const Icon(Icons.movie_outlined),
+          title: ("Films"),
+          activeColorPrimary: AppTheme.primaryColor,
+          inactiveColorPrimary: Colors.white54,
+        ),
+        PersistentBottomNavBarItem(
+          icon: const Icon(Icons.schedule),
+          title: ("Séances"),
+          activeColorPrimary: AppTheme.primaryColor,
+          inactiveColorPrimary: Colors.white54,
+        ),
+        PersistentBottomNavBarItem(
+          icon: const Icon(Icons.confirmation_number_outlined),
+          title: ("Tickets"),
+          activeColorPrimary: AppTheme.primaryColor,
+          inactiveColorPrimary: Colors.white54,
+        ),
+      ];
 
   void _logoutUser() async {
     await AuthService().logout();
@@ -107,17 +106,17 @@ class _HomeNavigationState extends State<HomeNavigation> {
   @override
   Widget build(BuildContext context) {
     return PersistentTabView(
-      navBarHeight: 50,
-      decoration: NavBarDecoration(
-        colorBehindNavBar: Colors.black54,
-          borderRadius: BorderRadius.circular(20.0)),
+      navBarHeight: 65,
+      decoration: const NavBarDecoration(
+        colorBehindNavBar: Colors.black,
+      ),
       context,
       controller: _controller,
       screens: _buildScreens(),
       items: _navBarsItems(),
       confineToSafeArea: true,
-      backgroundColor: Colors.white30,
-      animationSettings: NavBarAnimationSettings(
+      backgroundColor: AppTheme.backgroundColor.withOpacity(0.9),
+      animationSettings: const NavBarAnimationSettings(
         navBarItemAnimation: ItemAnimationSettings(
           duration: Duration(milliseconds: 800),
           curve: Curves.ease,

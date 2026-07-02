@@ -1,6 +1,9 @@
+import 'dart:ui';
+import 'package:animate_do/animate_do.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:ticket_cine/theme/app_theme.dart';
 import 'package:ticket_cine/views/video_section.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import '../models/movie_credit.dart';
@@ -50,29 +53,27 @@ class _MovieDetailPageeState extends State<MovieDetailPagee>
 
   @override
   Widget build(BuildContext context) {
-    final movie = widget.movieId;
     return Scaffold(
-      backgroundColor: Colors.black.withOpacity(0.4),
-      appBar: AppBar(
-        foregroundColor: Colors.white70,
-        elevation: 0,
-        backgroundColor: Colors.black.withOpacity(0.5),
-        centerTitle: true,
-        title: const Text('Détails', style: TextStyle(color: Colors.white)),
+      extendBodyBehindAppBar: true,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(70),
+        child: ClipRRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: AppBar(
+              backgroundColor: Colors.black.withOpacity(0.2),
+              title: const Text('Détails'),
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+          ),
+        ),
       ),
       body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.black.withOpacity(0.5), // Noir très sombre
-              Colors.black.withOpacity(0.6), // Noir un peu plus clair
-              Colors.black.withOpacity(0.7), // Blanc très léger
-              Colors.black.withOpacity(0.8),
-              Colors.black.withOpacity(0.7),
-            ],
-          ),
+        decoration: const BoxDecoration(
+          gradient: AppTheme.backgroundGradient,
         ),
         child: FutureBuilder(
           future: Future.wait([_movieDetails, _movieCredits]),
@@ -339,31 +340,32 @@ class _MovieDetailPageeState extends State<MovieDetailPagee>
   Widget _buildMovieHeader(MovieDetails movie) {
     return Stack(
       children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(8),
+        Hero(
+          tag: 'movie_${movie.id}',
           child: Container(
             height: 550,
             width: double.infinity,
             decoration: BoxDecoration(
               image: DecorationImage(
                 image: NetworkImage(
-                  'https://image.tmdb.org/t/p/w500${movie.backdropPath}',
+                  'https://image.tmdb.org/t/p/w500${movie.posterPath}',
                 ),
                 fit: BoxFit.cover,
               ),
             ),
           ),
         ),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: Container(
-            height: 550,
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Colors.transparent, Colors.black54, Colors.black87],
-              ),
+        Container(
+          height: 550,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.transparent,
+                AppTheme.backgroundColor.withOpacity(0.5),
+                AppTheme.backgroundColor,
+              ],
             ),
           ),
         ),
@@ -374,51 +376,43 @@ class _MovieDetailPageeState extends State<MovieDetailPagee>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                movie.title,
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
+              FadeInDown(
+                child: Text(
+                  movie.title,
+                  style: Theme.of(context).textTheme.displaySmall,
                 ),
               ),
               const SizedBox(height: 8),
-              _buildGenresSection(movie),
-              const SizedBox(height: 4),
-              SizedBox( child: _buildMovieOverview(movie)),
-              const SizedBox(height: 8),
-              /*if (movie.tagline?.isNotEmpty ?? false)
-                Text(
-                  '"${movie.tagline}"',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white70,
-                  ),
-                ),*/
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  /*OutlinedButton.icon(
-                    onPressed: () {},
-                    icon: const Icon(Icons.info_outline),
-                    label: const Text('Plus d\'infos'),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Colors.white70),
-                      foregroundColor: Colors.white,
+              FadeInDown(
+                delay: const Duration(milliseconds: 200),
+                child: _buildGenresSection(movie),
+              ),
+              const SizedBox(height: 12),
+              FadeInDown(
+                delay: const Duration(milliseconds: 400),
+                child: Text(
+                  movie.overview,
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ),
+              const SizedBox(height: 20),
+              FadeInUp(
+                delay: const Duration(milliseconds: 600),
+                child: Row(
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: () => _showTrailerDialog(context, widget.movieId),
+                      icon: const Icon(Icons.play_arrow_rounded),
+                      label: const Text('Bande-annonce'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor,
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      ),
                     ),
-                  ),*/
-                  const SizedBox(width: 12),
-                  ElevatedButton.icon(
-                    onPressed: () => _showTrailerDialog(context, widget.movieId),
-                    icon: const Icon(Icons.play_circle_fill_outlined),
-                    label: const Text('Bande-annonce'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.redAccent,
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ],
           ),

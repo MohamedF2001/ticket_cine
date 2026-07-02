@@ -1,8 +1,11 @@
+import 'dart:ui';
+import 'package:animate_do/animate_do.dart';
 import 'package:flutter/material.dart';
 import 'package:ticket_cine/models/session_response.dart';
 import 'package:ticket_cine/models/user_model.dart';
 import 'package:ticket_cine/services/auth_service.dart';
 import 'package:ticket_cine/services/seesion_service.dart';
+import 'package:ticket_cine/theme/app_theme.dart';
 import 'package:ticket_cine/views/splash_screen.dart';
 import 'package:ticket_cine/widgets/horizontale.dart';
 import 'package:ticket_cine/widgets/popular.dart';
@@ -79,9 +82,13 @@ class TousState extends State<Tous> {
         break;
 
       case 'reservations':
-        // Rediriger vers la page des réservations (à créer)
+        // Navigation vers l'onglet tickets (index 2 dans HomeNavigation)
+        // Note: Dans dashbord.dart, l'index 2 est LeTicket
+        // Comme nous sommes dans une PersistentTabView, nous pouvons essayer de changer l'index du controller
+        // Mais ici nous n'avons pas accès directement au controller de HomeNavigation.
+        // On va utiliser le feedback utilisateur pour l'instant ou implémenter une solution via Provider/Callback si nécessaire.
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Navigation vers mes réservations (à faire)')),
+          const SnackBar(content: Text('Veuillez utiliser l\'onglet "Tickets" en bas')),
         );
         break;
 
@@ -140,58 +147,103 @@ class TousState extends State<Tous> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black.withOpacity(0.4),
-      /* appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.black.withOpacity(0.5),
-        centerTitle: true,
-        title: const Text('Movies', style: TextStyle(color: Colors.white)),
-      ), */
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.black.withOpacity(0.5),
-        centerTitle: true,
-        title: Text(
-          'Bienvenue, ${widget.user.prenom} ${widget.user.nom}',
-          style: TextStyle(color: Colors.white),
-        ),
-        actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.person, color: Colors.white),
-            onSelected: _onMenuSelected,
-            itemBuilder:
-                (context) => const [
-                  PopupMenuItem(value: 'profile', child: Text('Profil')),
-                  PopupMenuItem(
-                    value: 'change_password',
-                    child: Text('Changer le mot de passe'),
+      extendBodyBehindAppBar: true,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(70),
+        child: ClipRRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: AppBar(
+              backgroundColor: Colors.black.withOpacity(0.2),
+              title: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Bonjour,',
+                    style: Theme.of(context).textTheme.bodyMedium,
                   ),
-                  PopupMenuItem(value: 'logout', child: Text('Se déconnecter')),
+                  Text(
+                    '${widget.user.prenom} ${widget.user.nom}',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
                 ],
-          ),
-        ],
-      ),
-
-      body: SingleChildScrollView(
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Colors.black.withOpacity(0.5), // Noir très sombre
-                Colors.black.withOpacity(0.6), // Noir un peu plus clair
-                Colors.black.withOpacity(0.7), // Blanc très léger
-                Colors.black.withOpacity(0.8),
-                Colors.black.withOpacity(0.7),
+              ),
+              actions: [
+                Container(
+                  margin: const EdgeInsets.only(right: 16),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withOpacity(0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: PopupMenuButton<String>(
+                    offset: const Offset(0, 50),
+                    icon: const Icon(Icons.person_outline, color: Colors.white),
+                    onSelected: _onMenuSelected,
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(
+                        value: 'profile',
+                        child: Row(
+                          children: [
+                            Icon(Icons.person_outline, size: 20),
+                            SizedBox(width: 10),
+                            Text('Profil'),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'change_password',
+                        child: Row(
+                          children: [
+                            Icon(Icons.lock_outline, size: 20),
+                            SizedBox(width: 10),
+                            Text('Sécurité'),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'logout',
+                        child: Row(
+                          children: [
+                            Icon(Icons.logout, size: 20, color: AppTheme.primaryColor),
+                            SizedBox(width: 10),
+                            Text('Déconnexion', style: TextStyle(color: AppTheme.primaryColor)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(10),
-            child: Column(
-              children: [HorizontalMovieList(), PopularPage(), TopRatedPage()],
-            ),
+        ),
+      ),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: AppTheme.backgroundGradient,
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.only(top: 100, bottom: 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              FadeInDown(
+                duration: const Duration(milliseconds: 600),
+                child: HorizontalMovieList(),
+              ),
+              const SizedBox(height: 10),
+              FadeInLeft(
+                duration: const Duration(milliseconds: 600),
+                delay: const Duration(milliseconds: 200),
+                child: PopularPage(),
+              ),
+              const SizedBox(height: 10),
+              FadeInUp(
+                duration: const Duration(milliseconds: 600),
+                delay: const Duration(milliseconds: 400),
+                child: TopRatedPage(),
+              ),
+            ],
           ),
         ),
       ),

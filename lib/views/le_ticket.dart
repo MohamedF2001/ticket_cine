@@ -3,9 +3,12 @@ import 'dart:typed_data';
 
 import 'package:barcode_scan2/barcode_scan2.dart';
 import 'package:barcode_scan2/model/scan_result.dart';
+import 'dart:ui';
+import 'package:animate_do/animate_do.dart';
 import 'package:barcode_widget/barcode_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:ticket_cine/theme/app_theme.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -447,146 +450,211 @@ class LeTicketState extends State<LeTicket> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black.withOpacity(0.4),
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.black.withOpacity(0.5),
-        centerTitle: true,
-        title: Text("Mes réservations", style: TextStyle(color: Colors.white)),
-        actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.person, color: Colors.white),
-            onSelected: _onMenuSelected,
-            itemBuilder:
-                (context) => const [
-                  PopupMenuItem(value: 'profile', child: Text('Profil')),
-                  PopupMenuItem(
-                    value: 'reservations',
-                    child: Text('Mes réservations'),
-                  ),
-                  PopupMenuItem(
-                    value: 'change_password',
-                    child: Text('Changer le mot de passe'),
-                  ),
-                  PopupMenuItem(value: 'logout', child: Text('Se déconnecter')),
-                ],
-          ),
-        ],
-      ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.black.withOpacity(0.5), // Noir très sombre
-              Colors.black.withOpacity(0.6), // Noir un peu plus clair
-              Colors.black.withOpacity(0.7), // Blanc très léger
-              Colors.black.withOpacity(0.8),
-              Colors.black.withOpacity(0.7),
-            ],
-          ),
-        ),
-        child: Center(
-          child: SizedBox(
-            width: 320, // Largeur adaptée à vos tickets
-            height: 550,
-            child: Stack(
-              alignment: Alignment.center,
-              clipBehavior: Clip.none,
-              children:
-                  List.generate(_userReservations.length, (index) {
-                    final imgFilm = _userReservations[index];
-                    final isTop = index == 0;
-
-                    final topOffset = index * 5.0;
-                    final leftOffset = index * 8.0;
-                    final rotation =
-                        (index % 2 == 0 ? -1 : 1) *
-                        0.05 *
-                        (_userReservations.length - index);
-
-                    return AnimatedPositioned(
-                      duration: Duration(milliseconds: isDragging ? 0 : 300),
-                      top: isTop ? offsetY : topOffset,
-                      left: isTop ? offsetX : leftOffset,
-                      child: Transform.rotate(
-                        angle: isTop ? offsetX * 0.002 : rotation,
-                        child: GestureDetector(
-                          onPanStart: (_) {
-                            if (isTop) setState(() => isDragging = true);
-                          },
-                          onPanUpdate: (details) {
-                            if (!isTop) return;
-                            setState(() {
-                              offsetX += details.delta.dx;
-                              offsetY += details.delta.dy;
-                            });
-                          },
-                          onPanEnd: (_) => _onDragEnd(),
-                          child: ClipPath(
-                            clipper: TicketClipper(),
-                            child: Container(
-                              width: 300,
-                              height: 470,
-                              padding: EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: Colors.grey,
-                                border: Border.all(
-                                  color: Colors.grey.shade600,
-                                  width: 2,
-                                ),
-                                borderRadius: BorderRadius.only(
-                                  topLeft: Radius.circular(20),
-                                  topRight: Radius.circular(20),
-                                ),
-                              ),
-                              child: Column(
-                                children: [
-                                  Image.network(
-                                    'https://image.tmdb.org/t/p/w500${imgFilm.seance.imgFilm}',
-                                    height: 200,
-                                    fit: BoxFit.cover,
-                                  ),
-                                  SizedBox(height: 10),
-                                  Text(
-                                    imgFilm.seance.film,
-                                    style: TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-
-                                  Divider(),
-                                  Text(imgFilm.seance.typeSeance),
-                                  Text(imgFilm.seance.formattedDate),
-                                  Text("Place N°: ${imgFilm.numeroSiege}"),
-                                  Spacer(),
-                                  BarcodeWidget(
-                                    barcode: Barcode.code128(),
-                                    data: imgFilm.id,
-                                    width: 200,
-                                    height: 100,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  }).reversed.toList(),
+      extendBodyBehindAppBar: true,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(70),
+        child: ClipRRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: AppBar(
+              backgroundColor: Colors.black.withOpacity(0.2),
+              title: const Text("Mes Tickets"),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  onPressed: _loadUserReservations,
+                ),
+              ],
             ),
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _downloadPdf,
-        backgroundColor: Colors.white70,
-        tooltip: 'Télécharger le ticket PDF', // Couleur cinéma
-        child: Icon(Icons.download, color: Colors.black),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: AppTheme.backgroundGradient,
+        ),
+        child: _isLoading && _userReservations.isEmpty
+            ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
+            : _userReservations.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.confirmation_number_outlined, size: 80, color: Colors.white10),
+                        SizedBox(height: 20),
+                        Text("Aucune réservation", style: TextStyle(color: Colors.white54)),
+                      ],
+                    ),
+                  )
+                : Stack(
+                    children: [
+                      Center(
+                        child: SizedBox(
+                          width: 320,
+                          height: 600,
+                          child: Stack(
+                            alignment: Alignment.center,
+                            clipBehavior: Clip.none,
+                            children: List.generate(_userReservations.length, (index) {
+                              final ticket = _userReservations[index];
+                              final isTop = index == 0;
+
+                              final topOffset = index * 8.0;
+                              final leftOffset = index * 4.0;
+                              final rotation = (index % 2 == 0 ? -1 : 1) * 0.02 * index;
+
+                              return AnimatedPositioned(
+                                duration: Duration(milliseconds: isDragging ? 0 : 300),
+                                top: isTop ? offsetY + 50 : topOffset + 50,
+                                left: isTop ? offsetX : leftOffset,
+                                child: Transform.rotate(
+                                  angle: isTop ? offsetX * 0.001 : rotation,
+                                  child: GestureDetector(
+                                    onPanStart: (_) {
+                                      if (isTop) setState(() => isDragging = true);
+                                    },
+                                    onPanUpdate: (details) {
+                                      if (!isTop) return;
+                                      setState(() {
+                                        offsetX += details.delta.dx;
+                                        offsetY += details.delta.dy;
+                                      });
+                                    },
+                                    onPanEnd: (_) => _onDragEnd(),
+                                    child: FadeInUp(
+                                      duration: Duration(milliseconds: 500 + (index * 100)),
+                                      child: _buildTicketCard(ticket),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }).reversed.toList(),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
       ),
-      //floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      floatingActionButton: _userReservations.isNotEmpty
+          ? FloatingActionButton.extended(
+              onPressed: _downloadPdf,
+              backgroundColor: AppTheme.primaryColor,
+              icon: const Icon(Icons.download_rounded, color: Colors.white),
+              label: const Text("Télécharger PDF", style: TextStyle(color: Colors.white)),
+            )
+          : null,
+    );
+  }
+
+  Widget _buildTicketCard(Reservation ticket) {
+    return ClipPath(
+      clipper: TicketClipper(),
+      child: Container(
+        width: 300,
+        height: 480,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.3),
+              blurRadius: 10,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Stack(
+              children: [
+                Image.network(
+                  'https://image.tmdb.org/t/p/w500${ticket.seance.imgFilm}',
+                  height: 180,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                ),
+                Container(
+                  height: 180,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Colors.transparent, Colors.white.withOpacity(0.8)],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  Text(
+                    ticket.seance.film,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildTicketInfo("DATE", ticket.seance.formattedDate),
+                      _buildTicketInfo("HEURE", ticket.seance.formattedTime),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildTicketInfo("SALLE", ticket.seance.salle),
+                      _buildTicketInfo("SIÈGE", ticket.numeroSiege),
+                    ],
+                  ),
+                  const SizedBox(height: 15),
+                  const Divider(color: Colors.black12, thickness: 1),
+                  const SizedBox(height: 15),
+                  BarcodeWidget(
+                    barcode: Barcode.code128(),
+                    data: ticket.id,
+                    width: 200,
+                    height: 80,
+                    drawText: false,
+                    color: Colors.black,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    ticket.id.toUpperCase(),
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: Colors.black54,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTicketInfo(String label, String value) {
+    return Column(
+      children: [
+        Text(
+          label,
+          style: const TextStyle(fontSize: 10, color: Colors.black38, fontWeight: FontWeight.bold),
+        ),
+        Text(
+          value,
+          style: const TextStyle(fontSize: 14, color: Colors.black, fontWeight: FontWeight.bold),
+        ),
+      ],
     );
   }
 }
