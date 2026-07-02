@@ -1,6 +1,8 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:ticket_cine/models/movie_response.dart';
+import 'package:ticket_cine/theme/app_theme.dart';
 
 import '../views/movie_details.dart';
 
@@ -65,42 +67,69 @@ class MovieCard extends StatelessWidget {
               ),
             );
           },
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Image.network(
-              'https://image.tmdb.org/t/p/w500${movie!.posterPath}',
-              height: 260,
-              width: 170,
-              fit: BoxFit.cover,
-              errorBuilder:
-                  (_, __, ___) => Container(
+          child: Stack(
+            children: [
+              Hero(
+                tag: 'movie_${movie!.id}',
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Image.network(
+                    'https://image.tmdb.org/t/p/w500${movie!.posterPath}',
                     height: 260,
                     width: 170,
-                    color: Colors.grey[300],
-                    child: const Icon(Icons.broken_image),
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      height: 260,
+                      width: 170,
+                      color: Colors.grey[900],
+                      child: const Icon(Icons.broken_image, color: Colors.white24),
+                    ),
                   ),
-            ),
+                ),
+              ),
+              Positioned(
+                top: 10,
+                right: 10,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      color: Colors.black.withOpacity(0.5),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.star, color: AppTheme.accentColor, size: 14),
+                          const SizedBox(width: 4),
+                          Text(
+                            movie!.voteAverage.toStringAsFixed(1),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         Text(
           movie!.title,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
         ),
-        Row(
-          children: [
-            const Icon(Icons.star, color: Colors.amber, size: 16),
-            const SizedBox(width: 4),
-            Text(
-              movie!.voteAverage.toStringAsFixed(1),
-              style: const TextStyle(color: Colors.white),
-            ),
-          ],
+        Text(
+          movie!.releaseDate?.split('-').first ?? '',
+          style: Theme.of(context).textTheme.bodySmall,
         ),
       ],
     );
