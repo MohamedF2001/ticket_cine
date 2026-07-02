@@ -64,7 +64,7 @@ class _SplashScreenNewState extends State<SplashScreenNew>
             transitionsBuilder: (context, animation, secondaryAnimation, child) {
               return FadeTransition(opacity: animation, child: child);
             },
-            transitionDuration: const Duration(milliseconds: 500),
+            transitionDuration: const Duration(seconds: 10),
           ),
         );
       } else {
@@ -121,11 +121,12 @@ class _SplashScreenNewState extends State<SplashScreenNew>
                         ),
                       ],
                     ),
-                    child: const Icon(
+                    child: Image.asset('assets/images/cinema.png', width: 150),
+                    /*const Icon(
                       Icons.movie_filter_rounded,
                       size: 50,
                       color: Colors.white,
-                    ),
+                    ),*/
                   ),
                 ),
               ),

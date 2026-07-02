@@ -20,6 +20,12 @@ class AppTheme {
     colors: [Color(0xFFE50914), Color(0xFFB20710)],
   );
 
+  static const LinearGradient secondGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Colors.transparent, Color(0xFFB20710)],
+  );
+
   static const LinearGradient glassGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
@@ -190,7 +196,7 @@ class AppTheme {
 
   // Spacing
   static const double paddingSmall = 8.0;
-  static const double paddingMedium = 16.0;
+  static const double paddingMedium = 10.0;
   static const double paddingLarge = 24.0;
   static const double paddingXLarge = 32.0;
 

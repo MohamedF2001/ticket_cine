@@ -104,7 +104,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        gradient: AppTheme.primaryGradient,
+                        gradient: AppTheme.secondGradient,
                         boxShadow: [
                           BoxShadow(
                             color: AppTheme.primaryColor.withOpacity(0.3),
@@ -113,11 +113,12 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ],
                       ),
-                      child: const Icon(
+                      child: Image.asset('assets/images/cinema.png', width: 60,height: 60,),
+                      /*const Icon(
                         Icons.movie_filter_rounded,
                         size: 60,
                         color: Colors.white,
-                      ),
+                      ),*/
                     ),
                   ),
 

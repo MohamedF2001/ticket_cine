@@ -96,8 +96,8 @@ class _SeatSelectionScreenState extends State<SeatSelectionScreen> {
           // Écran de cinéma
           Container(
             margin: const EdgeInsets.symmetric(
-              horizontal: AppTheme.paddingLarge,
-              vertical: AppTheme.paddingMedium,
+              //horizontal: AppTheme.paddingLarge,
+              //vertical: AppTheme.paddingMedium,
             ),
             child: CustomPaint(
               size: const Size(double.infinity, 50),
@@ -105,7 +105,7 @@ class _SeatSelectionScreenState extends State<SeatSelectionScreen> {
             ),
           ),
 
-          const SizedBox(height: 32),
+          const SizedBox(height: 22),
 
           // Grille de sièges
           Expanded(
@@ -161,30 +161,32 @@ class _SeatSelectionScreenState extends State<SeatSelectionScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Siège $_selectedSeat',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleMedium
-                                  ?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Siège $_selectedSeat',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleMedium
+                                    ?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white
+                                ),
                               ),
-                            ),
-                            Text(
-                              widget.seance.film,
-                              //style: Theme.of(context).textTheme.bodyMedium,
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w400,
-                                letterSpacing: 0.25,
-                                color: Colors.white
+                              Text(
+                                widget.seance.film,
+                                //style: Theme.of(context).textTheme.bodyMedium,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w400,
+                                  letterSpacing: 0.25,
+                                  color: Colors.white
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                         Text(
                           '${widget.seance.prix} F CFA',
@@ -192,6 +194,7 @@ class _SeatSelectionScreenState extends State<SeatSelectionScreen> {
                               .textTheme
                               .headlineSmall
                               ?.copyWith(
+                            fontSize: 20,
                             color: AppTheme.accentColor,
                             fontWeight: FontWeight.bold,
                           ),
