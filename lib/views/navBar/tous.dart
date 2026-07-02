@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:ticket_cine/models/session_response.dart';
+import 'package:animate_do/animate_do.dart';
 import 'package:ticket_cine/models/user_model.dart';
 import 'package:ticket_cine/services/auth_service.dart';
-import 'package:ticket_cine/services/seesion_service.dart';
-import 'package:ticket_cine/views/splash_screen.dart';
+import 'package:ticket_cine/theme/app_theme.dart';
 import 'package:ticket_cine/widgets/horizontale.dart';
 import 'package:ticket_cine/widgets/popular.dart';
 import 'package:ticket_cine/widgets/top_rated.dart';
@@ -18,182 +17,183 @@ class Tous extends StatefulWidget {
 }
 
 class TousState extends State<Tous> {
-  final SessionService _sessionService = SessionService();
-  final AuthService _authService = AuthService();
+  final _scrollController = ScrollController();
 
-  Future<void> _handleLogout() async {
-    try {
-      await AuthService().logout();
-      widget.onLogout(); // Redirection propre
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur de déconnexion : $e')),
-      );
-    }
-  }
-
-  List<Session> _sessions = [];
-  bool _isLoading = true;
-
-  // Permet d'appeler fetchSeances() depuis l'extérieur
   void refreshData() {
-    _loadSessions();
+    // Les widgets enfants gèrent leur propre rafraîchissement ou on peut forcer un rebuild
+    setState(() {});
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _loadSessions();
-  }
-
-  Future<void> _loadSessions() async {
-    setState(() => _isLoading = true);
-    try {
-      final response = await _sessionService.getAllSeances();
-      setState(() => _sessions = response.seances);
-      //setState(() => _sessions = [response.seance]);
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Échec du chargement des séances : $e')),
-      );
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  void _onMenuSelected(String value) async {
+  void _onMenuSelected(String value) {
     switch (value) {
       case 'profile':
-        showDialog(
-          context: context,
-          builder:
-              (_) => AlertDialog(
-                title: Text('Profil utilisateur'),
-                content: Text(
-                  'Nom : ${widget.user.nom}\n'
-                  'Prénom : ${widget.user.prenom}\n'
-                  'Numéro : ${widget.user.numero}',
-                ),
-              ),
-        );
+        _showProfileDialog();
         break;
-
-      case 'reservations':
-        // Rediriger vers la page des réservations (à créer)
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Navigation vers mes réservations (à faire)')),
-        );
-        break;
-
-      case 'change_password':
-        _showChangePasswordDialog();
-        break;
-
-      /*case 'logout':
-        await _authService.logout();
-        // Dans votre page avec bottom bar
-
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (context) => SplashScreen()),
-          (route) => false,
-        );
-        break;*/
       case 'logout':
-        try {
-          await AuthService().logout();
-          widget.onLogout(); // Redirection propre
-        } catch (e) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Erreur lors de la déconnexion : $e')),
-          );
-        }
+        widget.onLogout();
         break;
-
     }
+  }
+
+  void _showProfileDialog() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+        ),
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 60,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 32),
+            const CircleAvatar(
+              radius: 40,
+              backgroundColor: AppColors.primary,
+              child: Icon(Icons.person, size: 40, color: Colors.black),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              '${widget.user.prenom} ${widget.user.nom}',
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+            Text(
+              widget.user.numero,
+              style: const TextStyle(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 32),
+            ListTile(
+              leading: const Icon(Icons.lock_outline, color: AppColors.primary),
+              title: const Text('Changer le mot de passe'),
+              onTap: () {
+                Navigator.pop(context);
+                _showChangePasswordDialog();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.logout, color: Colors.redAccent),
+              title: const Text('Se déconnecter'),
+              onTap: () {
+                Navigator.pop(context);
+                widget.onLogout();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _showChangePasswordDialog() {
-    final _newPasswordController = TextEditingController();
-
+    final controller = TextEditingController();
     showDialog(
       context: context,
-      builder:
-          (_) => AlertDialog(
-            title: Text('Changer le mot de passe'),
-            content: TextField(
-              controller: _newPasswordController,
-              obscureText: true,
-              decoration: InputDecoration(labelText: 'Nouveau mot de passe'),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Annuler'),
-              ),
-              TextButton(onPressed: () async {}, child: const Text('Valider')),
-            ],
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text('Nouveau mot de passe'),
+        content: TextField(
+          controller: controller,
+          obscureText: true,
+          decoration: const InputDecoration(
+            hintText: 'Entrez le nouveau mot de passe',
+            prefixIcon: Icon(Icons.lock_outline, color: AppColors.primary),
           ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annuler', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              // Logique de changement de mot de passe à implémenter côté API
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Fonctionnalité en cours de développement'),
+                  backgroundColor: AppColors.primary,
+                ),
+              );
+            },
+            child: const Text('Valider'),
+          ),
+        ],
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black.withOpacity(0.4),
-      /* appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.black.withOpacity(0.5),
-        centerTitle: true,
-        title: const Text('Movies', style: TextStyle(color: Colors.white)),
-      ), */
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.black.withOpacity(0.5),
-        centerTitle: true,
-        title: Text(
-          'Bienvenue, ${widget.user.prenom} ${widget.user.nom}',
-          style: TextStyle(color: Colors.white),
-        ),
-        actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.person, color: Colors.white),
-            onSelected: _onMenuSelected,
-            itemBuilder:
-                (context) => const [
-                  PopupMenuItem(value: 'profile', child: Text('Profil')),
-                  PopupMenuItem(
-                    value: 'change_password',
-                    child: Text('Changer le mot de passe'),
+      backgroundColor: AppColors.background,
+      body: CustomScrollView(
+        controller: _scrollController,
+        slivers: [
+          SliverAppBar(
+            expandedHeight: 120.0,
+            floating: false,
+            pinned: true,
+            backgroundColor: AppColors.background,
+            flexibleSpace: FlexibleSpaceBar(
+              titlePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              title: FadeInLeft(
+                child: Text(
+                  'Hello, ${widget.user.prenom}',
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 20,
                   ),
-                  PopupMenuItem(value: 'logout', child: Text('Se déconnecter')),
+                ),
+              ),
+              background: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [AppColors.surface, AppColors.background],
+                  ),
+                ),
+              ),
+            ),
+            actions: [
+              IconButton(
+                icon: const CircleAvatar(
+                  radius: 18,
+                  backgroundColor: AppColors.primary,
+                  child: Icon(Icons.person, size: 20, color: Colors.black),
+                ),
+                onPressed: _showProfileDialog,
+              ),
+              const SizedBox(width: 8),
+            ],
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: Column(
+                children: [
+                  FadeInRight(child: HorizontalMovieList()),
+                  const SizedBox(height: 16),
+                  FadeInLeft(child: PopularPage()),
+                  const SizedBox(height: 16),
+                  FadeInRight(child: TopRatedPage()),
+                  const SizedBox(height: 100), // Space for nav bar
                 ],
+              ),
+            ),
           ),
         ],
-      ),
-
-      body: SingleChildScrollView(
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Colors.black.withOpacity(0.5), // Noir très sombre
-                Colors.black.withOpacity(0.6), // Noir un peu plus clair
-                Colors.black.withOpacity(0.7), // Blanc très léger
-                Colors.black.withOpacity(0.8),
-                Colors.black.withOpacity(0.7),
-              ],
-            ),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(10),
-            child: Column(
-              children: [HorizontalMovieList(), PopularPage(), TopRatedPage()],
-            ),
-          ),
-        ),
       ),
     );
   }

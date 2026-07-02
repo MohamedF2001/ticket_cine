@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:ticket_cine/models/session_response.dart';
-import 'package:ticket_cine/services/seesion_service.dart';
+import 'package:ticket_cine/services/session_service.dart';
 import 'package:ticket_cine/widgets/flippable.dart';
 import '../../models/user_model.dart';
 import '../../services/auth_service.dart';

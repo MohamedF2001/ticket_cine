@@ -4,7 +4,7 @@ import 'package:ticket_cine/models/user_model.dart';
 import 'package:ticket_cine/views/seat_select.dart';
 import 'package:ticket_cine/services/auth_service.dart';
 import 'package:ticket_cine/services/reservation_service.dart';
-import 'package:ticket_cine/services/seesion_service.dart';
+import 'package:ticket_cine/services/session_service.dart';
 import 'package:ticket_cine/auth/login_page.dart';
 import 'create_reservation_page.dart';
 
