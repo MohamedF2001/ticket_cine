@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:animate_do/animate_do.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:ticket_cine/models/session_response.dart';
 import 'package:ticket_cine/services/auth_service.dart';
 import 'package:ticket_cine/services/reservation_service.dart';
+import 'package:ticket_cine/theme/app_theme.dart';
 
 class SeatSelectionPage extends StatefulWidget {
   final Session seance;
@@ -18,27 +20,27 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
   final ReservationService _reservationService = ReservationService();
 
   List<String> selectedSeats = [];
-  List<String> reservedSeats = []; // Exemple
+  List<String> reservedSeats = [];
   bool _isLoading = false;
-  String? _errorMessage;
+  bool _isReserving = false;
 
   @override
   void initState() {
-    // TODO: implement initState
     super.initState();
     _loadReservedSeats();
   }
 
   Future<void> _loadReservedSeats() async {
+    setState(() => _isLoading = true);
     try {
-      final seats = await _reservationService.getReservedSeats(
-        widget.seance.id,
-      );
+      final seats = await _reservationService.getReservedSeats(widget.seance.id);
       setState(() {
         reservedSeats = seats;
       });
     } catch (e) {
       print("Erreur chargement sièges: $e");
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 
@@ -47,76 +49,104 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
     final prixTotal = selectedSeats.length * widget.seance.prix;
 
     return Scaffold(
-      backgroundColor: Colors.grey.withOpacity(0.3),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        centerTitle: true,
-        title: const Text(
-          "Choisir votre siège",
-          style: TextStyle(color: Colors.white),
-        ),
-        iconTheme: const IconThemeData(color: Colors.white),
+        title: const Text("Choisir vos places"),
+        backgroundColor: AppColors.background,
       ),
       body: Column(
         children: [
           const SizedBox(height: 20),
           _buildScreenView(),
-          Expanded(child: _buildSeatGrid()),
+          const SizedBox(height: 40),
+          Expanded(
+            child: _isLoading
+              ? const Center(child: SpinKitPulse(color: AppColors.primary))
+              : FadeInUp(child: _buildSeatGrid()),
+          ),
           _buildLegend(),
-          _buildInfoCard(prixTotal),
-          _buildBuyButton(prixTotal),
+          _buildBottomPanel(prixTotal),
         ],
       ),
     );
   }
 
   Widget _buildScreenView() {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      width: double.infinity,
-      child: CustomPaint(
-        painter: GlowingArcPainter(),
-        //ArcPainter(),
-        child: const SizedBox(height: 50),
-      ),
+    return Column(
+      children: [
+        Container(
+          height: 5,
+          width: MediaQuery.of(context).size.width * 0.7,
+          decoration: BoxDecoration(
+            color: AppColors.primary,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primary.withOpacity(0.5),
+                blurRadius: 15,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        const Text(
+          "ÉCRAN",
+          style: TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 12,
+            letterSpacing: 8,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildSeatGrid() {
-    const totalSeats = 40;
     return GridView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      itemCount: totalSeats,
+      padding: const EdgeInsets.symmetric(horizontal: 32),
+      itemCount: 48, // 6 rows of 8 seats
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 8,
-        mainAxisSpacing: 5,
-        crossAxisSpacing: 5,
+        mainAxisSpacing: 10,
+        crossAxisSpacing: 10,
       ),
       itemBuilder: (context, index) {
         final seatNumber = (index + 1).toString();
         final isReserved = reservedSeats.contains(seatNumber);
         final isSelected = selectedSeats.contains(seatNumber);
 
-        Color color;
-        if (isReserved) {
-          color = Colors.pink;
-        } else if (isSelected) {
-          color = Colors.cyanAccent;
-        } else {
-          color = Colors.grey[300]!;
-        }
-
         return GestureDetector(
           onTap: isReserved ? null : () => _toggleSeat(seatNumber),
-          child: Container(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
             decoration: BoxDecoration(
-              //color: color,
-              borderRadius: BorderRadius.circular(4),
+              color: isReserved
+                  ? Colors.white12
+                  : isSelected
+                      ? AppColors.primary
+                      : Colors.transparent,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: isReserved
+                    ? Colors.transparent
+                    : isSelected
+                        ? AppColors.primary
+                        : AppColors.primary.withOpacity(0.3),
+                width: 1,
+              ),
             ),
             child: Center(
-              // Dessine une forme de siège miniature
-              child: Icon(Icons.event_seat, color: color),
+              child: Icon(
+                Icons.event_seat_rounded,
+                size: 20,
+                color: isReserved
+                    ? Colors.white24
+                    : isSelected
+                        ? Colors.black
+                        : AppColors.primary.withOpacity(0.7),
+              ),
             ),
           ),
         );
@@ -129,204 +159,117 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
       if (selectedSeats.contains(seatNumber)) {
         selectedSeats.remove(seatNumber);
       } else {
-        selectedSeats = [seatNumber]; // Remplace la liste par le nouveau siège
+        selectedSeats.add(seatNumber);
       }
     });
   }
 
   Widget _buildLegend() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 24),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _legendDot(Colors.grey[300]!, "Disponible"),
-          _legendDot(Colors.pink, "Réservé"),
-          _legendDot(Colors.cyanAccent, "Sélectionné"),
+          _legendItem(Colors.transparent, "Libre", borderColor: AppColors.primary.withOpacity(0.3)),
+          const SizedBox(width: 24),
+          _legendItem(AppColors.primary, "Choisi"),
+          const SizedBox(width: 24),
+          _legendItem(Colors.white12, "Occupé"),
         ],
       ),
     );
   }
 
-  Widget _legendDot(Color color, String label) {
+  Widget _legendItem(Color color, String label, {Color? borderColor}) {
     return Row(
       children: [
         Container(
-          width: 10,
-          height: 10,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          width: 16,
+          height: 16,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(4),
+            border: borderColor != null ? Border.all(color: borderColor) : null,
+          ),
         ),
         const SizedBox(width: 8),
-        Text(label, style: const TextStyle(color: Colors.white)),
+        Text(label, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
       ],
     );
   }
 
-  Widget _buildInfoCard(int prixTotal) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Card(
-        color: Colors.black.withOpacity(0.3),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              Text(
-                selectedSeats.isEmpty
-                    ? "Choisissez votre siège"
-                    : "Siège • ${selectedSeats.first}",
-                style: const TextStyle(color: Colors.white),
-              ),
-              //const SizedBox(height: 8),
-              if (selectedSeats.isNotEmpty)
-                Text(
-                  "Total: €$prixTotal",
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-            ],
-          ),
-        ),
+  Widget _buildBottomPanel(int prixTotal) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(32, 24, 32, 40),
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
       ),
-    );
-  }
-
-  Widget _buildBuyButton(int prixTotal) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: ElevatedButton(
-        onPressed:
-            selectedSeats.isEmpty || _isLoading ? null : _submitReservation,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.black.withOpacity(0.5),
-          padding: const EdgeInsets.all(16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
-        child:
-            _isLoading
-                ? const SpinKitPulse(
-              duration: Duration(seconds: 3),
-              color: Colors.white70,
-            )
-                : const Text(
-                  "Réserver",
-                  style: TextStyle(fontSize: 18, color: Colors.white),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text("Total", style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
+                Text(
+                  "$prixTotal FCFA",
+                  style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
                 ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: ElevatedButton(
+              onPressed: selectedSeats.isEmpty || _isReserving ? null : _submitReservation,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+              ),
+              child: _isReserving
+                  ? const SpinKitThreeBounce(color: Colors.black, size: 20)
+                  : const Text("Réserver", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Future<void> _submitReservation() async {
-    if (selectedSeats.isEmpty) return;
-
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    //try {
+    setState(() => _isReserving = true);
+    try {
       final user = await _authService.getUser();
-      if (user == null) {
-        throw Exception("User not logged in");
+      if (user == null) throw Exception("Non connecté");
+
+      for (var seat in selectedSeats) {
+        await _reservationService.createReservation(
+          userId: user.id,
+          seanceId: widget.seance.id,
+          numeroSiege: seat,
+          prixTotal: widget.seance.prix,
+        );
       }
 
-      /* // Vérifier si l'utilisateur a déjà une réservation
-      final hasExistingReservation = await _reservationService
-          .checkExistingReservation(
-            userId: user.id,
-            seanceId: widget.seance.id,
-          );
-
-      if (hasExistingReservation) {
-        print("You already have a reservation for this session");
-      } */
-
-      // Créer une seule réservation
-      await _reservationService.createReservation(
-        userId: user.id,
-        seanceId: widget.seance.id,
-        numeroSiege: selectedSeats.first,
-        prixTotal: widget.seance.prix,
-      );
-      _isLoading = false;
-      Navigator.pop(context, true);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Reservaté avec succès!")));
-
-    // } catch (e) {
-    //   setState(() {
-    //     _errorMessage = "Error: ${e.toString()}";
-    //     print("icii: $e");
-    //   });
-    // } finally {
-    //   setState(() {
-    //     _isLoading = false;
-    //   });
-    // }
+      if (mounted) {
+        Navigator.pop(context, true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Réservation effectuée avec succès !"),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Erreur: ${e.toString()}"), backgroundColor: Colors.redAccent),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isReserving = false);
+    }
   }
-}
-
-class ArcPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint =
-        Paint()
-          ..color = Colors.white
-          ..strokeWidth = 4
-          ..style = PaintingStyle.stroke;
-
-    final rect = Rect.fromLTWH(
-      4,
-      -size.height * 5,
-      size.width,
-      size.height * 6,
-    );
-    canvas.drawArc(rect, 2.4, -1.7, false, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class GlowingArcPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final path = Path();
-    path.moveTo(0, size.height);
-    path.quadraticBezierTo(
-      size.width / 2,
-      0,
-      size.width,
-      size.height,
-    ); // courbe
-
-    // glow (ombre floue rose)
-    final glowPaint =
-        Paint()
-          ..color = Colors.white.withOpacity(0.5)
-          ..strokeWidth = 10
-          ..style = PaintingStyle.stroke
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
-
-    // ligne principale (arc)
-    final linePaint =
-        Paint()
-          ..color = Colors.white
-          ..strokeWidth = 4
-          ..style = PaintingStyle.stroke
-          ..strokeCap = StrokeCap.round;
-
-    canvas.drawPath(path, glowPaint); // lueur
-    canvas.drawPath(path, linePaint); // ligne
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

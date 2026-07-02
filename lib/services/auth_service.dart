@@ -5,13 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ticket_cine/models/user_model.dart';
 
 class AuthService {
-  //static const String baseUrl = 'http://localhost:3000';
-  // ip a rabtech
-  static const String baseUrl = 'http://192.168.1.8:3000';
   static const String onlineUrl = 'https://cinema-api-chi.vercel.app';
-  // ip chez moi
-  //static const String baseUrl = 'http://192.168.0.102:3000';
-  Logger log = Logger();
+  final Logger log = Logger();
 
   Future<UserModel?> login(
     String nom,
@@ -19,25 +14,29 @@ class AuthService {
     String numero,
     String password,
   ) async {
-    final response = await http.post(
-      Uri.parse('$onlineUrl/login'),
-      body: {
-        'nom': nom,
-        'prenom': prenom,
-        'numero': numero,
-        'password': password,
-      },
-    );
+    try {
+      final response = await http.post(
+        Uri.parse('$onlineUrl/login'),
+        body: {
+          'nom': nom,
+          'prenom': prenom,
+          'numero': numero,
+          'password': password,
+        },
+      );
 
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      if (data['success']) {
-        log.d("TOKEN: ${data['token']}");
-        log.d("USER: ${data['user']}");
-        SharedPreferences prefs = await SharedPreferences.getInstance();
-        await prefs.setString('token', data['token']);
-        return UserModel.fromJson(data['user']);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          log.d("LOGIN SUCCESS - TOKEN: ${data['token']}");
+          final SharedPreferences prefs = await SharedPreferences.getInstance();
+          await prefs.setString('token', data['token']);
+          return UserModel.fromJson(data['user']);
+        }
       }
+      log.w("LOGIN FAILED - STATUS: ${response.statusCode}");
+    } catch (e) {
+      log.e("LOGIN ERROR: $e");
     }
     return null;
   }
@@ -48,92 +47,84 @@ class AuthService {
     String numero,
     String password,
   ) async {
-    final response = await http.post(
-      Uri.parse('$onlineUrl/register'),
-      body: {
-        'nom': nom,
-        'prenom': prenom,
-        'numero': numero,
-        'password': password,
-      },
-    );
+    try {
+      final response = await http.post(
+        Uri.parse('$onlineUrl/register'),
+        body: {
+          'nom': nom,
+          'prenom': prenom,
+          'numero': numero,
+          'password': password,
+        },
+      );
 
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      if (data['success']) {
-        log.d("USER: ${data['user']}");
-        log.d("TOKEN: ${data['token']}");
-        SharedPreferences prefs = await SharedPreferences.getInstance();
-        await prefs.setString('token', data['token']);
-        return UserModel.fromJson(data['user']);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          log.d("REGISTER SUCCESS - TOKEN: ${data['token']}");
+          final SharedPreferences prefs = await SharedPreferences.getInstance();
+          await prefs.setString('token', data['token']);
+          return UserModel.fromJson(data['user']);
+        }
       }
+      log.w("REGISTER FAILED - STATUS: ${response.statusCode}");
+    } catch (e) {
+      log.e("REGISTER ERROR: $e");
     }
     return null;
   }
 
   Future<void> logout() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
 
-    if (token == null) return; // Aucun token => déjà déconnecté
-
-    final response = await http.get(
-      Uri.parse('$onlineUrl/logout'),
-      headers: {
-        'Authorization': 'Bearer $token',
-      },
-    );
-
-    if (response.statusCode == 200) {
+      if (token != null) {
+        await http.get(
+          Uri.parse('$onlineUrl/logout'),
+          headers: {
+            'Authorization': 'Bearer $token',
+          },
+        );
+      }
       await prefs.remove('token');
-      log.d('Déconnexion réussie');
-    } else {
-      throw Exception('Erreur lors de la déconnexion : ${response.statusCode}');
+      log.d('DECONNEXION REUSSIE');
+    } catch (e) {
+      log.e("LOGOUT ERROR: $e");
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.remove('token');
     }
   }
 
-
-  /*Future<void> logout() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    //await prefs.remove('token');
-    await prefs.clear(); // pour tout supprimer
-  }*/
-
   Future<bool> isLoggedIn() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
     return prefs.containsKey('token');
   }
 
   Future<String?> getToken() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
-    log.d("GET TOKEN: $token");
-    return token;
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    return prefs.getString('token');
   }
 
   Future<UserModel?> getUser() async {
-    final token = await getToken();
+    try {
+      final token = await getToken();
+      if (token == null || token.isEmpty) return null;
 
-    // Si le token est null ou vide, retourner null
-    if (token == null || token.isEmpty) {
-      return null;
-    }
+      final response = await http.get(
+        Uri.parse('$onlineUrl/me'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
 
-    final response = await http.get(
-      Uri.parse('$onlineUrl/me'),
-      headers: {'Authorization': 'Bearer $token'},
-    );
-    // Vérifier si la réponse est valide
-    print("Response: ${response.body}");
-    print("Status Code: ${response.statusCode}");
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      if (data['success']) {
-        log.d("GET USER: ${data['user']}");
-        return UserModel.fromJson(data['user']);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          return UserModel.fromJson(data['user']);
+        }
       }
+    } catch (e) {
+      log.e("GET USER ERROR: $e");
     }
-
     return null;
   }
 }
