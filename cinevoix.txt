@@ -1,0 +1,31 @@
+1
+00:00:00,000 --> 00:00:14,000
+Et si votre cinéma tenait dans une seule application ? Bienvenue sur CinéBook. Créez votre compte en quelques secondes et connectez-vous.
+
+2
+00:00:15,000 --> 00:00:22,000
+Parcourez les dernières sorties, découvrez les films populaires et trouvez votre prochaine séance en un simple swipe.
+
+3
+00:00:23,000 --> 00:00:35,000
+Envie d'en savoir plus ? Consultez la fiche complète, le casting et regardez la bande-annonce directement dans l'app.
+
+4
+00:00:36,000 --> 00:00:43,000
+Filtrez les séances par date et choisissez l'horaire qui vous convient parfaitement.
+
+5
+00:00:44,000 --> 00:00:50,000
+Sélectionnez votre place préférée sur notre plan de salle interactif et réservez en un clic.
+
+6
+00:00:51,000 --> 00:00:56,000
+Fini les files d'attente et les billets perdus. Votre ticket digital est généré instantanément.
+
+7
+00:00:57,000 --> 00:01:07,000
+Besoin d'une copie ? Téléchargez votre billet en PDF. Élégant, sécurisé et toujours accessible, même hors ligne.
+
+8
+00:01:08,000 --> 00:01:09,000
+CinéBook. Book. Scan. Enjoy.
