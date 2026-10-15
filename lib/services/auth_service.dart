@@ -14,16 +14,12 @@ class AuthService {
   Logger log = Logger();
 
   Future<UserModel?> login(
-    String nom,
-    String prenom,
     String numero,
     String password,
   ) async {
     final response = await http.post(
       Uri.parse('$onlineUrl/login'),
       body: {
-        'nom': nom,
-        'prenom': prenom,
         'numero': numero,
         'password': password,
       },
@@ -135,5 +131,57 @@ class AuthService {
     }
 
     return null;
+  }
+
+  Future<bool> changePassword(String currentPassword, String newPassword) async {
+    final token = await getToken();
+    if (token == null || token.isEmpty) return false;
+
+    try {
+      final response = await http.post(
+        Uri.parse('$onlineUrl/change-password'),
+        headers: {
+          'Authorization': 'Bearer $token',
+        },
+        body: {
+          'currentPassword': currentPassword,
+          'newPassword': newPassword,
+        },
+      );
+
+      print("Change Password Response: ${response.body}");
+      print("Status Code: ${response.statusCode}");
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data['success'] == true;
+      }
+    } catch (e) {
+      log.e("Error changing password: $e");
+    }
+    return false;
+  }
+
+  Future<bool> forgotPassword(String numero, String newPassword) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$onlineUrl/forgot-password'),
+        body: {
+          'numero': numero,
+          'newPassword': newPassword,
+        },
+      );
+
+      print("Forgot Password Response: ${response.body}");
+      print("Status Code: ${response.statusCode}");
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data['success'] == true;
+      }
+    } catch (e) {
+      log.e("Error resetting password: $e");
+    }
+    return false;
   }
 }
