@@ -13,13 +13,18 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final nomController = TextEditingController();
-  final prenomController = TextEditingController();
   final numeroController = TextEditingController();
   final passwordController = TextEditingController();
   final authService = AuthService();
   bool _obscureText = true;
-  // Variable d'état pour suivre si le texte est masqué
+
+  @override
+  void dispose() {
+    numeroController.dispose();
+    passwordController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -97,22 +102,10 @@ class _LoginPageState extends State<LoginPage> {
                                 ),
                                 const SizedBox(height: 30),
                                 _buildTextField(
-                                  controller: nomController,
-                                  hint: "Nom",
-                                  icon: Icons.person_outline,
-                                ),
-                                const SizedBox(height: 15),
-                                _buildTextField(
-                                  controller: prenomController,
-                                  hint: "Prénom",
-                                  icon: Icons.person_outline,
-                                ),
-                                const SizedBox(height: 15),
-                                _buildTextField(
                                   controller: numeroController,
-                                  hint: "Numéro",
+                                  hint: "Numéro de téléphone",
                                   icon: Icons.phone_android_outlined,
-                                  keyboardType: TextInputType.number,
+                                  keyboardType: TextInputType.phone,
                                 ),
                                 const SizedBox(height: 15),
                                 _buildTextField(
@@ -203,9 +196,7 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _handleLogin() async {
-    if (nomController.text.isEmpty ||
-        prenomController.text.isEmpty ||
-        numeroController.text.isEmpty ||
+    if (numeroController.text.isEmpty ||
         passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Veuillez remplir tous les champs")),
@@ -214,9 +205,7 @@ class _LoginPageState extends State<LoginPage> {
     }
 
     final user = await authService.login(
-      nomController.text,
-      prenomController.text,
-      numeroController.text,
+      numeroController.text.trim(),
       passwordController.text,
     );
 

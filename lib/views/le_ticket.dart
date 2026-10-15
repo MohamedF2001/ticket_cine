@@ -1,8 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:barcode_scan2/barcode_scan2.dart';
-import 'package:barcode_scan2/model/scan_result.dart';
+import 'package:mobile_scanner/mobile_scanner.dart' as ms;
 import 'dart:ui';
 import 'package:animate_do/animate_do.dart';
 import 'package:barcode_widget/barcode_widget.dart';
@@ -192,14 +191,36 @@ class LeTicketState extends State<LeTicket> with TickerProviderStateMixin {
 
   Future<void> _scanBarcode() async {
     try {
-      final ScanResult result = await BarcodeScanner.scan();
-      if (result.rawContent.isNotEmpty) {
+      final String? res = await Navigator.push<String>(
+        context,
+        MaterialPageRoute(
+          builder: (context) => Scaffold(
+            appBar: AppBar(
+              title: const Text('Scanner le ticket'),
+              backgroundColor: AppTheme.primaryColor,
+            ),
+            body: ms.MobileScanner(
+              onDetect: (capture) {
+                final barcodes = capture.barcodes;
+                for (final barcode in barcodes) {
+                  if (barcode.rawValue != null) {
+                    Navigator.pop(context, barcode.rawValue);
+                    break;
+                  }
+                }
+              },
+            ),
+          ),
+        ),
+      );
+
+      if (res != null && res.isNotEmpty) {
         setState(() {
           _isLoading = true;
         });
 
         // Supposons que le code-barres contient l'ID de réservation
-        final reservationId = result.rawContent;
+        final reservationId = res;
         final reservation = await _reservationService.getReservationById(
           reservationId,
         );
@@ -214,6 +235,7 @@ class LeTicketState extends State<LeTicket> with TickerProviderStateMixin {
     } catch (e) {
       setState(() {
         _errorMessage = "Erreur de scan: $e";
+        _isLoading = false;
       });
     }
   }

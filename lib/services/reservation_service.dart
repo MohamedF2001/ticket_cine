@@ -92,7 +92,20 @@ class ReservationService {
 
       if (response.statusCode == 200) {
         log.d('Reservations du User ${response.body} ${response.statusCode}');
-        return ReservationResponse.fromJson(json.decode(response.body));
+        if (response.body.isEmpty) {
+          return ReservationResponse(success: true, reservations: []);
+        }
+        final decoded = json.decode(response.body);
+        if (decoded is Map<String, dynamic>) {
+          return ReservationResponse.fromJson(decoded);
+        } else if (decoded is List) {
+          return ReservationResponse(
+            success: true,
+            reservations: decoded.map((item) => Reservation.fromJson(item as Map<String, dynamic>)).toList(),
+          );
+        } else {
+          return ReservationResponse(success: false, reservations: []);
+        }
       } else {
         log.e('Erreur de chargement des reservations du user: ${response.body} ${response.statusCode}');
         throw Exception('Erreur de chargement des reservations: ${response.body}');
@@ -112,9 +125,20 @@ class ReservationService {
       );
 
       if (response.statusCode == 200) {
+        if (response.body.isEmpty) {
+          throw Exception('Réservation introuvable (corps vide)');
+        }
         final data = json.decode(response.body);
-        log.d("Les réservations ${data['reservation']}");
-        return Reservation.fromJson(data['reservation']);
+        if (data is Map<String, dynamic>) {
+          final resData = data['reservation'] ?? data;
+          if (resData is Map<String, dynamic>) {
+            return Reservation.fromJson(resData);
+          } else {
+            throw Exception('Données de réservation invalides');
+          }
+        } else {
+          throw Exception('Format de réponse invalide');
+        }
       } else {
         log.e('Erreur lors de la récupération de la réservation : ${response.body}');
         throw Exception(

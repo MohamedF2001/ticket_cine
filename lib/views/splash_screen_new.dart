@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ticket_cine/services/auth_service.dart';
 
 import '../theme/app_theme.dart';
 import 'main/home_navigation_screen.dart';
 import 'auth/login_screen.dart';
+import 'onboarding_screen.dart';
 
 class SplashScreenNew extends StatefulWidget {
   const SplashScreenNew({super.key});
@@ -64,20 +66,38 @@ class _SplashScreenNewState extends State<SplashScreenNew>
             transitionsBuilder: (context, animation, secondaryAnimation, child) {
               return FadeTransition(opacity: animation, child: child);
             },
-            transitionDuration: const Duration(seconds: 10),
-          ),
-        );
-      } else {
-        Navigator.of(context).pushReplacement(
-          PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) =>
-            const LoginScreen(),
-            transitionsBuilder: (context, animation, secondaryAnimation, child) {
-              return FadeTransition(opacity: animation, child: child);
-            },
             transitionDuration: const Duration(milliseconds: 500),
           ),
         );
+      } else {
+        final prefs = await SharedPreferences.getInstance();
+        final hasSeenOnboarding = prefs.getBool('has_seen_onboarding') ?? false;
+
+        if (!mounted) return;
+
+        if (!hasSeenOnboarding) {
+          Navigator.of(context).pushReplacement(
+            PageRouteBuilder(
+              pageBuilder: (context, animation, secondaryAnimation) =>
+                  const OnboardingScreen(),
+              transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                return FadeTransition(opacity: animation, child: child);
+              },
+              transitionDuration: const Duration(milliseconds: 500),
+            ),
+          );
+        } else {
+          Navigator.of(context).pushReplacement(
+            PageRouteBuilder(
+              pageBuilder: (context, animation, secondaryAnimation) =>
+              const LoginScreen(),
+              transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                return FadeTransition(opacity: animation, child: child);
+              },
+              transitionDuration: const Duration(milliseconds: 500),
+            ),
+          );
+        }
       }
     } catch (e) {
       if (!mounted) return;
