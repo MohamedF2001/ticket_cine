@@ -1,3 +1,5 @@
+import 'dart:ui';
+import 'package:animate_do/animate_do.dart';
 import 'package:flutter/material.dart';
 import 'package:ticket_cine/services/auth_service.dart';
 
@@ -68,13 +70,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
             transitionsBuilder: (context, animation, secondaryAnimation, child) {
               return FadeTransition(opacity: animation, child: child);
             },
+            transitionDuration: const Duration(milliseconds: 500),
           ),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Échec de l\'inscription'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppTheme.primaryColor,
           ),
         );
       }
@@ -95,191 +98,258 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
-      appBar: AppBar(
-        backgroundColor: AppTheme.backgroundColor,
-        elevation: 0,
-      ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: AppTheme.backgroundGradient,
-        ),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(AppTheme.paddingLarge),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    'Créer un compte',
-                    //style: Theme.of(context).textTheme.displayMedium,
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-
-                  const SizedBox(height: 8),
-
-                  Text(
-                    'Rejoignez CinéBook',
-                    //style: Theme.of(context).textTheme.bodyMedium,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.white,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-
-                  const SizedBox(height: 30),
-
-                  _buildTextField(
-                    controller: _nomController,
-                    label: 'Nom',
-                    icon: Icons.person_outline,
-                    validator: (value) =>
-                    value?.isEmpty ?? true ? 'Entrez votre nom' : null,
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  _buildTextField(
-                    controller: _prenomController,
-                    label: 'Prénom',
-                    icon: Icons.person_outline,
-                    validator: (value) =>
-                    value?.isEmpty ?? true ? 'Entrez votre prénom' : null,
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  _buildTextField(
-                    controller: _numeroController,
-                    label: 'Numéro',
-                    icon: Icons.phone_outlined,
-                    keyboardType: TextInputType.phone,
-                    validator: (value) =>
-                    value?.isEmpty ?? true ? 'Entrez votre numéro' : null,
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  _buildTextField(
-                    controller: _passwordController,
-                    label: 'Mot de passe',
-                    icon: Icons.lock_outline,
-                    obscureText: _obscurePassword,
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscurePassword
-                            ? Icons.visibility_outlined
-                            : Icons.visibility_off_outlined,
-                        color: AppTheme.textSecondary,
-                      ),
-                      onPressed: () {
-                        setState(() => _obscurePassword = !_obscurePassword);
-                      },
-                    ),
-                    validator: (value) {
-                      if (value?.isEmpty ?? true) {
-                        return 'Entrez un mot de passe';
-                      }
-                      if (value!.length < 6) {
-                        return 'Minimum 6 caractères';
-                      }
-                      return null;
-                    },
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  _buildTextField(
-                    controller: _confirmPasswordController,
-                    label: 'Confirmer le mot de passe',
-                    icon: Icons.lock_outline,
-                    obscureText: _obscureConfirmPassword,
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscureConfirmPassword
-                            ? Icons.visibility_outlined
-                            : Icons.visibility_off_outlined,
-                        color: AppTheme.textSecondary,
-                      ),
-                      onPressed: () {
-                        setState(() =>
-                        _obscureConfirmPassword = !_obscureConfirmPassword);
-                      },
-                    ),
-                    validator: (value) =>
-                    value?.isEmpty ?? true
-                        ? 'Confirmez votre mot de passe'
-                        : null,
-                  ),
-
-                  const SizedBox(height: 32),
-
-                  _isLoading
-                      ? const Center(
-                    child: CircularProgressIndicator(
-                      color: AppTheme.primaryColor,
-                    ),
-                  )
-                      : ElevatedButton(
-                    onPressed: _register,
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      foregroundColor: Colors.white,
-                      backgroundColor: AppTheme.primaryColor,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(
-                          AppTheme.radiusMedium,
-                        ),
-                      ),
-                    ),
-                    child: const Text('S\'inscrire'),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Déjà un compte ? ',
-                        //style: Theme.of(context).textTheme.bodyMedium,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.of(context).pushReplacement(
-                            MaterialPageRoute(
-                              builder: (_) => const LoginScreen(),
-                            ),
-                          );
-                        },
-                        child: const Text(
-                          'Se connecter',
-                          style: TextStyle(
-                            color: AppTheme.primaryColor,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+      extendBodyBehindAppBar: true,
+      body: Stack(
+        children: [
+          // Background Image with opacity
+          Container(
+            decoration: const BoxDecoration(
+              image: DecorationImage(
+                image: AssetImage('assets/images/cinema.png'),
+                fit: BoxFit.cover,
+                opacity: 0.25,
+              ),
+            ),
+          ),
+          // Dark Gradient Overlay
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  AppTheme.backgroundColor.withOpacity(0.6),
+                  AppTheme.backgroundColor.withOpacity(0.9),
+                  AppTheme.backgroundColor,
                 ],
               ),
             ),
           ),
-        ),
+          // Main Content
+          SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Logo Animation
+                      FadeInDown(
+                        duration: const Duration(milliseconds: 800),
+                        child: Hero(
+                          tag: 'logo',
+                          child: Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: AppTheme.primaryGradient,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppTheme.primaryColor.withOpacity(0.5),
+                                  blurRadius: 25,
+                                  spreadRadius: 8,
+                                ),
+                              ],
+                            ),
+                            child: Image.asset(
+                              'assets/images/cinema.png',
+                              width: 60,
+                              height: 60,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      // Title Animation
+                      FadeInDown(
+                        duration: const Duration(milliseconds: 800),
+                        delay: const Duration(milliseconds: 200),
+                        child: Text(
+                          'Créer un compte',
+                          style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      FadeInDown(
+                        duration: const Duration(milliseconds: 800),
+                        delay: const Duration(milliseconds: 300),
+                        child: Text(
+                          'Rejoignez CinéBook et réservez vos séances',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            fontSize: 14,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+                      // Glassmorphic Form Card
+                      FadeInUp(
+                        duration: const Duration(milliseconds: 800),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(20),
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                            child: Container(
+                              padding: const EdgeInsets.all(24),
+                              decoration: AppTheme.glassDecoration(radius: 20),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Text(
+                                    'Inscription',
+                                    style: Theme.of(context).textTheme.headlineMedium,
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  const SizedBox(height: 24),
+                                  _buildTextField(
+                                    controller: _nomController,
+                                    label: 'Nom',
+                                    icon: Icons.person_outline,
+                                    validator: (value) =>
+                                        value?.isEmpty ?? true ? 'Entrez votre nom' : null,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  _buildTextField(
+                                    controller: _prenomController,
+                                    label: 'Prénom',
+                                    icon: Icons.person_outline,
+                                    validator: (value) =>
+                                        value?.isEmpty ?? true ? 'Entrez votre prénom' : null,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  _buildTextField(
+                                    controller: _numeroController,
+                                    label: 'Numéro de téléphone',
+                                    icon: Icons.phone_android_outlined,
+                                    keyboardType: TextInputType.phone,
+                                    validator: (value) =>
+                                        value?.isEmpty ?? true ? 'Entrez votre numéro' : null,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  _buildTextField(
+                                    controller: _passwordController,
+                                    label: 'Mot de passe',
+                                    icon: Icons.lock_outline,
+                                    obscureText: _obscurePassword,
+                                    suffixIcon: IconButton(
+                                      icon: Icon(
+                                        _obscurePassword
+                                            ? Icons.visibility_off_outlined
+                                            : Icons.visibility_outlined,
+                                        color: AppTheme.textSecondary,
+                                      ),
+                                      onPressed: () {
+                                        setState(() => _obscurePassword = !_obscurePassword);
+                                      },
+                                    ),
+                                    validator: (value) {
+                                      if (value?.isEmpty ?? true) {
+                                        return 'Entrez un mot de passe';
+                                      }
+                                      if (value!.length < 6) {
+                                        return 'Minimum 6 caractères';
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                  const SizedBox(height: 16),
+                                  _buildTextField(
+                                    controller: _confirmPasswordController,
+                                    label: 'Confirmer le mot de passe',
+                                    icon: Icons.lock_outline,
+                                    obscureText: _obscureConfirmPassword,
+                                    suffixIcon: IconButton(
+                                      icon: Icon(
+                                        _obscureConfirmPassword
+                                            ? Icons.visibility_off_outlined
+                                            : Icons.visibility_outlined,
+                                        color: AppTheme.textSecondary,
+                                      ),
+                                      onPressed: () {
+                                        setState(() =>
+                                            _obscureConfirmPassword = !_obscureConfirmPassword);
+                                      },
+                                    ),
+                                    validator: (value) =>
+                                        value?.isEmpty ?? true
+                                            ? 'Confirmez votre mot de passe'
+                                            : null,
+                                  ),
+                                  const SizedBox(height: 32),
+                                  _isLoading
+                                      ? const Center(
+                                          child: CircularProgressIndicator(
+                                            color: AppTheme.primaryColor,
+                                          ),
+                                        )
+                                      : ElevatedButton(
+                                          onPressed: _register,
+                                          style: ElevatedButton.styleFrom(
+                                            padding: const EdgeInsets.symmetric(vertical: 16),
+                                            backgroundColor: AppTheme.primaryColor,
+                                            foregroundColor: Colors.white,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(14),
+                                            ),
+                                          ),
+                                          child: const Text(
+                                            'S\'inscrire',
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      // Login Link
+                      FadeInUp(
+                        duration: const Duration(milliseconds: 800),
+                        delay: const Duration(milliseconds: 400),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              'Déjà un compte ? ',
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                Navigator.of(context).pushReplacement(
+                                  MaterialPageRoute(
+                                    builder: (_) => const LoginScreen(),
+                                  ),
+                                );
+                              },
+                              child: const Text(
+                                'Se connecter',
+                                style: TextStyle(
+                                  color: AppTheme.primaryColor,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

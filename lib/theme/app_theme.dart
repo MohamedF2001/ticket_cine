@@ -6,16 +6,33 @@ class AppTheme {
   static const Color backgroundColor = Color(0xFF121212);
   static const Color surfaceColor = Color(0xFF1E1E1E);
   static const Color primaryColor = Color(0xFFE50914);
-  static const Color accentColor = Color(0xFFFFD700);
+  static const Color accentColor = Color(0xFFE50914);
   static const Color textPrimary = Color(0xFFFFFFFF);
   static const Color textSecondary = Color(0xFFB3B3B3);
-  static const Color cardColor = Color(0xFF2A2A2A);
+  static const Color cardColor = Color(0xFF1E1E1E);
+  static const Color glassColor = Color(0x1AFFFFFF);
+  static const Color glassBorderColor = Color(0x33FFFFFF);
 
   // Gradients
   static const LinearGradient primaryGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: [Color(0xFFE50914), Color(0xFFB20710)],
+  );
+
+  static const LinearGradient secondGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Colors.transparent, Color(0xFFB20710)],
+  );
+
+  static const LinearGradient glassGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0x33FFFFFF),
+      Color(0x1AFFFFFF),
+    ],
   );
 
   static const LinearGradient backgroundGradient = LinearGradient(
@@ -103,8 +120,9 @@ class AppTheme {
       iconTheme: const IconThemeData(color: textPrimary),
       titleTextStyle: GoogleFonts.poppins(
         fontSize: 20,
-        fontWeight: FontWeight.w600,
+        fontWeight: FontWeight.w700,
         color: textPrimary,
+        letterSpacing: 0.5,
       ),
     ),
 
@@ -178,7 +196,7 @@ class AppTheme {
 
   // Spacing
   static const double paddingSmall = 8.0;
-  static const double paddingMedium = 16.0;
+  static const double paddingMedium = 10.0;
   static const double paddingLarge = 24.0;
   static const double paddingXLarge = 32.0;
 
@@ -187,4 +205,17 @@ class AppTheme {
   static const double radiusMedium = 12.0;
   static const double radiusLarge = 16.0;
   static const double radiusXLarge = 24.0;
+
+  // Glassmorphism Decoration
+  static BoxDecoration glassDecoration({
+    double radius = radiusMedium,
+    Color? color,
+    Border? border,
+  }) {
+    return BoxDecoration(
+      color: color ?? glassColor,
+      borderRadius: BorderRadius.circular(radius),
+      border: border ?? Border.all(color: glassBorderColor, width: 1.5),
+    );
+  }
 }

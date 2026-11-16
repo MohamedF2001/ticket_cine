@@ -1,8 +1,11 @@
+import 'dart:ui';
+import 'package:animate_do/animate_do.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:ticket_cine/models/session_response.dart';
 import 'package:ticket_cine/services/auth_service.dart';
 import 'package:ticket_cine/services/reservation_service.dart';
+import 'package:ticket_cine/theme/app_theme.dart';
 
 class SeatSelectionPage extends StatefulWidget {
   final Session seance;
@@ -47,26 +50,54 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
     final prixTotal = selectedSeats.length * widget.seance.prix;
 
     return Scaffold(
-      backgroundColor: Colors.grey.withOpacity(0.3),
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        centerTitle: true,
-        title: const Text(
-          "Choisir votre siège",
-          style: TextStyle(color: Colors.white),
+      extendBodyBehindAppBar: true,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(70),
+        child: ClipRRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: AppBar(
+              backgroundColor: Colors.black.withOpacity(0.2),
+              title: const Text("Choisir votre siège"),
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+          ),
         ),
-        iconTheme: const IconThemeData(color: Colors.white),
       ),
-      body: Column(
-        children: [
-          const SizedBox(height: 20),
-          _buildScreenView(),
-          Expanded(child: _buildSeatGrid()),
-          _buildLegend(),
-          _buildInfoCard(prixTotal),
-          _buildBuyButton(prixTotal),
-        ],
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: AppTheme.backgroundGradient,
+        ),
+        child: Column(
+          children: [
+            const SizedBox(height: 100),
+            FadeInDown(child: _buildScreenView()),
+            const SizedBox(height: 30),
+            Expanded(
+              child: FadeInUp(
+                duration: const Duration(milliseconds: 800),
+                child: _buildSeatGrid(),
+              ),
+            ),
+            FadeInUp(
+              delay: const Duration(milliseconds: 200),
+              child: _buildLegend(),
+            ),
+            const SizedBox(height: 20),
+            FadeInUp(
+              delay: const Duration(milliseconds: 400),
+              child: _buildInfoCard(prixTotal),
+            ),
+            FadeInUp(
+              delay: const Duration(milliseconds: 600),
+              child: _buildBuyButton(prixTotal),
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
       ),
     );
   }
@@ -86,37 +117,43 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
   Widget _buildSeatGrid() {
     const totalSeats = 40;
     return GridView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 32),
       itemCount: totalSeats,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 8,
-        mainAxisSpacing: 5,
-        crossAxisSpacing: 5,
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 12,
       ),
       itemBuilder: (context, index) {
         final seatNumber = (index + 1).toString();
         final isReserved = reservedSeats.contains(seatNumber);
         final isSelected = selectedSeats.contains(seatNumber);
 
-        Color color;
+        Color iconColor;
         if (isReserved) {
-          color = Colors.pink;
+          iconColor = Colors.white24;
         } else if (isSelected) {
-          color = Colors.cyanAccent;
+          iconColor = AppTheme.primaryColor;
         } else {
-          color = Colors.grey[300]!;
+          iconColor = Colors.white;
         }
 
         return GestureDetector(
           onTap: isReserved ? null : () => _toggleSeat(seatNumber),
-          child: Container(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
             decoration: BoxDecoration(
-              //color: color,
-              borderRadius: BorderRadius.circular(4),
+              color: isSelected ? AppTheme.primaryColor.withOpacity(0.2) : Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: isSelected ? AppTheme.primaryColor : Colors.white10,
+                width: 1,
+              ),
             ),
-            child: Center(
-              // Dessine une forme de siège miniature
-              child: Icon(Icons.event_seat, color: color),
+            child: Icon(
+              Icons.chair_rounded,
+              color: iconColor,
+              size: 24,
             ),
           ),
         );
@@ -136,88 +173,108 @@ class _SeatSelectionPageState extends State<SeatSelectionPage> {
 
   Widget _buildLegend() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 30),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _legendDot(Colors.grey[300]!, "Disponible"),
-          _legendDot(Colors.pink, "Réservé"),
-          _legendDot(Colors.cyanAccent, "Sélectionné"),
+          _legendItem(Colors.white, "Libre"),
+          _legendItem(Colors.white24, "Occupé"),
+          _legendItem(AppTheme.primaryColor, "Choisi"),
         ],
       ),
     );
   }
 
-  Widget _legendDot(Color color, String label) {
+  Widget _legendItem(Color color, String label) {
     return Row(
       children: [
-        Container(
-          width: 10,
-          height: 10,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
+        Icon(Icons.chair_rounded, color: color, size: 18),
         const SizedBox(width: 8),
-        Text(label, style: const TextStyle(color: Colors.white)),
+        Text(
+          label,
+          style: const TextStyle(color: Colors.white70, fontSize: 12),
+        ),
       ],
     );
   }
 
   Widget _buildInfoCard(int prixTotal) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Card(
-        color: Colors.black.withOpacity(0.3),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 24),
+      padding: const EdgeInsets.all(20),
+      decoration: AppTheme.glassDecoration(radius: 20),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                selectedSeats.isEmpty
-                    ? "Choisissez votre siège"
-                    : "Siège • ${selectedSeats.first}",
-                style: const TextStyle(color: Colors.white),
+                "SIÈGE SÉLECTIONNÉ",
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      letterSpacing: 1.2,
+                      color: Colors.white54,
+                    ),
               ),
-              //const SizedBox(height: 8),
-              if (selectedSeats.isNotEmpty)
-                Text(
-                  "Total: €$prixTotal",
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
+              const SizedBox(height: 4),
+              Text(
+                selectedSeats.isEmpty ? "Aucun" : "Siège N°${selectedSeats.first}",
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
             ],
           ),
-        ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                "PRIX TOTAL",
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      letterSpacing: 1.2,
+                      color: Colors.white54,
+                    ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                "${prixTotal.toStringAsFixed(2)} €",
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: AppTheme.primaryColor,
+                    ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildBuyButton(int prixTotal) {
     return Padding(
-      padding: const EdgeInsets.all(16),
-      child: ElevatedButton(
-        onPressed:
-            selectedSeats.isEmpty || _isLoading ? null : _submitReservation,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.black.withOpacity(0.5),
-          padding: const EdgeInsets.all(16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
+      padding: const EdgeInsets.all(24),
+      child: SizedBox(
+        width: double.infinity,
+        height: 55,
+        child: ElevatedButton(
+          onPressed: selectedSeats.isEmpty || _isLoading ? null : _submitReservation,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.primaryColor,
+            disabledBackgroundColor: Colors.white10,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
           ),
-        ),
-        child:
-            _isLoading
-                ? const SpinKitPulse(
-              duration: Duration(seconds: 3),
-              color: Colors.white70,
-            )
-                : const Text(
-                  "Réserver",
-                  style: TextStyle(fontSize: 18, color: Colors.white),
+          child: _isLoading
+              ? const SpinKitThreeBounce(
+                  color: Colors.white,
+                  size: 20,
+                )
+              : const Text(
+                  "Confirmer la réservation",
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
+        ),
       ),
     );
   }

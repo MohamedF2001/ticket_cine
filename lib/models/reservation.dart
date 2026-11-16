@@ -70,20 +70,64 @@ class Reservation {
   });
 
   factory Reservation.fromJson(Map<String, dynamic> json) {
-    print("RESERVATION JSON: $json"); // ← Ajout de debug
+    print("RESERVATION JSON: $json");
+    
+    Session seanceObj;
+    if (json['seanceId'] is Map<String, dynamic>) {
+      seanceObj = Session.fromJson(json['seanceId'] as Map<String, dynamic>);
+    } else if (json['seanceId'] is Map) {
+      seanceObj = Session.fromJson(Map<String, dynamic>.from(json['seanceId']));
+    } else if (json['seance'] is Map<String, dynamic>) {
+      seanceObj = Session.fromJson(json['seance'] as Map<String, dynamic>);
+    } else if (json['seance'] is Map) {
+      seanceObj = Session.fromJson(Map<String, dynamic>.from(json['seance']));
+    } else {
+      seanceObj = Session(
+        id: json['seanceId']?.toString() ?? '',
+        filmId: 0,
+        film: 'Film',
+        imgFilm: '',
+        horaire: DateTime.now(),
+        date: DateTime.now(),
+        salle: '',
+        typeSeance: '',
+        prix: 0,
+        placesDisponibles: 0,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+        v: 0,
+      );
+    }
+
+    UserModel userObj;
+    if (json['userId'] is Map<String, dynamic>) {
+      userObj = UserModel.fromJson(json['userId'] as Map<String, dynamic>);
+    } else if (json['userId'] is Map) {
+      userObj = UserModel.fromJson(Map<String, dynamic>.from(json['userId']));
+    } else if (json['user'] is Map<String, dynamic>) {
+      userObj = UserModel.fromJson(json['user'] as Map<String, dynamic>);
+    } else if (json['user'] is Map) {
+      userObj = UserModel.fromJson(Map<String, dynamic>.from(json['user']));
+    } else {
+      userObj = UserModel(
+        id: json['userId']?.toString() ?? '',
+        nom: '',
+        prenom: '',
+        numero: '',
+      );
+    }
+
     return Reservation(
-      id: json['_id'],
-      //seance: Session.fromJson(json['seanceId']),
-      seance: Session.fromJson(json['seanceId']),
-      user: UserModel.fromJson(json['userId']),
-      numeroSiege: json['numeroSiege'] ?? '',
-      prixTotal:
-          (json['prixTotal'] is int)
-              ? (json['prixTotal'] as int).toDouble()
-              : json['prixTotal'] ?? 0.0,
-      statut: json['statut'] ?? '',
-      createdAt: DateTime.parse(json['createdAt']),
-      updatedAt: DateTime.parse(json['updatedAt']),
+      id: json['_id']?.toString() ?? json['id']?.toString() ?? '',
+      seance: seanceObj,
+      user: userObj,
+      numeroSiege: json['numeroSiege']?.toString() ?? '',
+      prixTotal: (json['prixTotal'] is int)
+          ? (json['prixTotal'] as int).toDouble()
+          : (json['prixTotal'] is double ? json['prixTotal'] : double.tryParse(json['prixTotal']?.toString() ?? '0') ?? 0.0),
+      statut: json['statut']?.toString() ?? '',
+      createdAt: json['createdAt'] != null ? DateTime.tryParse(json['createdAt'].toString()) ?? DateTime.now() : DateTime.now(),
+      updatedAt: json['updatedAt'] != null ? DateTime.tryParse(json['updatedAt'].toString()) ?? DateTime.now() : DateTime.now(),
     );
   }
 

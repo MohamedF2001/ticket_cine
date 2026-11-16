@@ -1,0 +1,57 @@
+# Fiche Technique Détaillée — Projet CinéBook (Ticket Ciné)
+*Document de spécification pour la production d’une vidéo de motion design / teaser promotionnel (Inspiré de cine.mp4 et du script voiceover)*
+
+---
+
+## 1. Vue d’Ensemble du Projet
+
+* **Nom du Projet :** CinéBook (Ticket Ciné)
+* **Type de Produit :** Application mobile Flutter de réservation de cinéma et de billetterie numérique.
+* **Format Vidéo Cible :** Motion Design / Teaser Produit (Style Apple Keynote / Premium Cinematic).
+* **Durée Totale :** 22 secondes.
+* **Palette Chromatique :** 
+  * Noir Profond / Obsidienne (#0B0B0F à #12121A) — Ambiance salle obscure / cinéma.
+  * Rouge Cinéma / Corail Lumineux (#E50914 ou #FF2A36) — Accents dynamiques, lueurs de projecteur.
+  * Blanc Pur / Gris Argenté (#FFFFFF / #A0A0AB) — Typographie et lisibilité.
+* **Typographie :** Poppins / San Francisco (Épurée, moderne, géométrique).
+
+---
+
+## 2. Découpage Scénique et Plan par Plan (Timeline Motion Design)
+
+| Scène | Horodatage | Description Visuelle & Animation 3D/2D | Voiceover (VO) & Audio |
+| :--- | :--- | :--- | :--- |
+| **1. Émergence** | 00:00 - 00:03 | Un smartphone émerge de l’obscurité totale. Un halo lumineux cinématique dessine ses contours biseautés. L’écran s’illumine avec une animation de lueur (glow). | « Et si votre cinéma tenait dans une seule application ? » (Ton posé, intrigant). |
+| **2. Révélation du Ticket** | 00:03 - 00:07.5 | Transition fluide vers l'interface de l'application. Un ticket de cinéma numérique se construit élément par élément : affiche du film, titre, date, heure, salle, numéro de siège, code-barres et QR code. | « CinéBook. Parcourir les films, choisir votre séance, réserver votre place. » |
+| **3. Macro QR Code** | 00:07.5 - 00:11.5 | Plan macro / zoom extrême sur le QR code. Une ligne de scan lumineuse descend le long du code, la caméra effectue une légère orbite 3D autour du ticket avant de reculer. | « Votre ticket digital, généré en un instant. Élégant. Sécurisé. Prêt à l’emploi. » |
+| **4. Lévitation** | 00:11.5 - 00:16 | Le ticket se détache dynamiquement de l'écran du téléphone, flotte en apesanteur dans l’espace 3D et réalise une rotation fluide à 360°. | « Fini les files d’attente. Fini les billets perdus. » |
+| **5. Déploiement PDF** | 00:16 - 00:20 | Le ticket se transforme ou se déplie tel un document PDF interactif depuis sa pliure centrale, symbolisant l'exportation et la portabilité du billet. | « Votre place est sur votre téléphone. Et toujours accessible, même hors ligne. » |
+| **6. Outro & Logo** | 00:20 - 00:22 | Le smartphone se replace au centre. Apparition du logo CinéBook. La tagline s’écrit lettre par lettre avec une lueur rouge finale, puis fondu au noir. | « CinéBook. Book. Scan. Enjoy. » (Swell musical final / logo hit). |
+
+---
+
+## 3. Spécifications Techniques et Directives de Production
+
+### A. Animation & Mouvement (Motion Guidelines)
+* **Courbes d’animation (Easing) :** Utiliser des courbes cubic-bezier(0.16, 1, 0.3, 1) (type Apple ease-out) pour toutes les entrées de caméras et de UI. Pas de mouvements linéaires mécaniques ; chaque élément doit avoir de l'inertie, de l'élasticité subtile et de la pesanteur.
+* **Éclairage 3D :** Rendu studio sombre. Utiliser des lumières de contre-jour (rim lights) pour détacher le téléphone et le ticket du fond noir profond. Reflets métalliques / verres subtils sur l'écran du téléphone.
+
+### B. Conception Audio & Sound Design (SFX)
+* **Voix :** Voix grave, chaleureuse et enveloppante (type voix off cinéma / keynote tech). Enregistrement studio propre, sans bruit de fond.
+* **Musique de fond :** Nappe ambient-cinematic progressive (basse fréquence subtile au départ, montée en puissance swell synchronisée avec le dernier mot « Enjoy » à la 22e seconde).
+* **Effets Sonores (SFX) :** 
+  * Whoosh subtil lors des transitions d'apparition du téléphone et du ticket.
+  * Léger bip / click technologique feutré lors du scan du QR code.
+  * Aucun effet vocal parasite (la voix reste reine).
+
+### C. Éléments UI Clés de l'Application à Mettre en Scène
+1. **Écran d'accueil / Catalogue :** Affiches de films immersives, carrousel fluide, badges de notation.
+2. **Écran de sélection des sièges :** Grille de fauteuils interactive avec choix des places (VIP / Standard).
+3. **Le Ticket Digital (le_ticket.dart / PDF) :** 
+   * Design ticket perforé bicolore.
+   * Informations claires : Titre du film, Horaires, Salle, Siège.
+   * QR Code / Code-barres authentique et scannable.
+   * Bouton de téléchargement / partage PDF.
+
+---
+*Cette fiche technique sert de cahier des charges complet pour orchestrer les logiciels de motion design (After Effects, Blender, Spline, Cinema 4D) ou guider un générateur de vidéo IA / studio de création.*

@@ -87,7 +87,7 @@ class _SessionsScreenState extends State<SessionsScreen> {
                     Text(
                       'Séances',
                       style: TextStyle(
-                        fontSize: 48,
+                        fontSize: 28,
                         fontWeight: FontWeight.w400,
                         color: Colors.white
                       )

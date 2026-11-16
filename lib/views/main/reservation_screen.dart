@@ -1363,7 +1363,7 @@ class _ReservationsScreenState extends State<ReservationsScreen> {
                       //style: Theme.of(context).textTheme.displaySmall,
                       style: TextStyle(
                           fontWeight: FontWeight.w400,
-                          fontSize: 48,
+                          fontSize: 28,
                           color: Colors.white
                       ),
                     ),
