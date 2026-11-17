@@ -230,7 +230,7 @@ class _ReservationsScreenState extends State<ReservationsScreen> {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
                                         content: Text('Erreur: $e'),
-                                        backgroundColor: Colors.red,
+                                        backgroundColor: AppTheme.errorColor,
                                       ),
                                     );
                                   }
@@ -943,7 +943,7 @@ class _ReservationsScreenState extends State<ReservationsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Erreur lors du téléchargement: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppTheme.errorColor,
           ),
         );
       }
@@ -1334,7 +1334,7 @@ class _ReservationsScreenState extends State<ReservationsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Erreur lors du téléchargement: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppTheme.errorColor,
           ),
         );
       }
@@ -1536,7 +1536,7 @@ class _ReservationsScreenState extends State<ReservationsScreen> {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
                                         content: Text('Erreur: $e'),
-                                        backgroundColor: Colors.red,
+                                        backgroundColor: AppTheme.errorColor,
                                       ),
                                     );
                                   }

@@ -133,22 +133,16 @@ class _RegisterPageState extends State<RegisterPage> {
                         child: Hero(
                           tag: 'logo',
                           child: Container(
-                            padding: const EdgeInsets.all(20),
+                            width: 112,
+                            height: 112,
                             decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: AppTheme.primaryGradient,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppTheme.primaryColor.withOpacity(0.5),
-                                  blurRadius: 25,
-                                  spreadRadius: 8,
-                                ),
-                              ],
+                              color: Colors.black,
+                              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                              border: Border.all(color: AppTheme.outlineColor),
                             ),
                             child: Image.asset(
-                              'assets/images/cinema.png',
-                              width: 60,
-                              height: 60,
+                              'assets/images/majestic2.png',
+                              fit: BoxFit.contain,
                             ),
                           ),
                         ),
@@ -171,7 +165,7 @@ class _RegisterPageState extends State<RegisterPage> {
                         duration: const Duration(milliseconds: 800),
                         delay: const Duration(milliseconds: 300),
                         child: Text(
-                          "Rejoignez CinéBook et réservez vos séances",
+                          "Réservez vos séances chez Majestic Cinéma Bénin",
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             fontSize: 14,
                           ),

@@ -56,7 +56,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Erreur: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppTheme.errorColor,
           ),
         );
       }
@@ -311,7 +311,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                       // Version
                       Text(
-                        'CinéBook v1.0.0',
+                        'Majestic Cinéma Bénin v1.0.0',
                         //style: Theme.of(context).textTheme.bodySmall,
                         style: TextStyle(
                             fontWeight: FontWeight.w400,
@@ -427,7 +427,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text('Veuillez remplir tous les champs'),
-                    backgroundColor: Colors.red,
+                    backgroundColor: AppTheme.errorColor,
                   ),
                 );
                 return;
@@ -437,7 +437,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text('Les nouveaux mots de passe ne correspondent pas'),
-                    backgroundColor: Colors.red,
+                    backgroundColor: AppTheme.errorColor,
                   ),
                 );
                 return;
@@ -459,7 +459,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text('Échec de la modification du mot de passe'),
-                    backgroundColor: Colors.red,
+                    backgroundColor: AppTheme.errorColor,
                   ),
                 );
               }

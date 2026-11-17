@@ -87,10 +87,10 @@ class _SplashScreenState extends State<SplashScreen>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Image.asset('assets/images/cinema.png', width: 150),
+              Image.asset('assets/images/majestic2.png', width: 190),
               const SizedBox(height: 30),
               const Text(
-                'CinéBook',
+                'Majestic Cinéma Bénin',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 24,

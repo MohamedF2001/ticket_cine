@@ -7,9 +7,9 @@
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     <application
-        android:label="ticket_cine"
+        android:label="Majestic Cinéma Bénin"
         android:name="${applicationName}"
-        android:icon="@mipmap/cinema">
+        android:icon="@mipmap/majestic2">
         <activity
             android:name=".MainActivity"
             android:exported="true"

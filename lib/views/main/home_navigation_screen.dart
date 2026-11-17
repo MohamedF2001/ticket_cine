@@ -49,7 +49,7 @@ class _HomeNavigationScreenState extends State<HomeNavigationScreen> {
         ),
         bottomNavigationBar: Container(
           decoration: BoxDecoration(
-            color: Colors.black,
+            color: AppTheme.surfaceColor,
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.3),
@@ -64,10 +64,10 @@ class _HomeNavigationScreenState extends State<HomeNavigationScreen> {
               topRight: Radius.circular(AppTheme.radiusLarge),
             ),
             child: BottomNavigationBar(
-              backgroundColor: Colors.black, // 🔥 fond noir
+              backgroundColor: AppTheme.surfaceColor,
               currentIndex: _currentIndex,
-              selectedItemColor: Colors.red, // 🎯 élément actif (bleu)
-              unselectedItemColor: Colors.white70, // éléments inactifs
+              selectedItemColor: AppTheme.accentColor,
+              unselectedItemColor: AppTheme.textSecondary,
               showUnselectedLabels: true,
               type: BottomNavigationBarType.fixed,
               onTap: (index) {

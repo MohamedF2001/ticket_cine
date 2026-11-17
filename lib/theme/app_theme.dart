@@ -3,13 +3,18 @@ import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
   // Couleurs principales
-  static const Color backgroundColor = Color(0xFF121212);
-  static const Color surfaceColor = Color(0xFF1E1E1E);
-  static const Color primaryColor = Color(0xFFE50914);
-  static const Color accentColor = Color(0xFFE50914);
+  static const Color backgroundColor = Color(0xFF09090B);
+  static const Color surfaceColor = Color(0xFF171719);
+  static const Color primaryColor = Color(0xFFB72126);
+  static const Color accentColor = Color(0xFFD3373E);
   static const Color textPrimary = Color(0xFFFFFFFF);
-  static const Color textSecondary = Color(0xFFB3B3B3);
-  static const Color cardColor = Color(0xFF1E1E1E);
+  static const Color textSecondary = Color(0xFFC4C4C7);
+  static const Color cardColor = Color(0xFF202023);
+  static const Color outlineColor = Color(0xFF4C4D4F);
+  static const Color errorColor = Color(0xFFF07178);
+  static const Color seatAvailable = Color(0xFF343438);
+  static const Color seatSelected = Color(0xFFB72126);
+  static const Color seatReserved = Color(0xFF737379);
   static const Color glassColor = Color(0x1AFFFFFF);
   static const Color glassBorderColor = Color(0x33FFFFFF);
 
@@ -17,13 +22,13 @@ class AppTheme {
   static const LinearGradient primaryGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFFE50914), Color(0xFFB20710)],
+    colors: [Color(0xFFB72126), Color(0xFF921B20)],
   );
 
   static const LinearGradient secondGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Colors.transparent, Color(0xFFB20710)],
+    colors: [Colors.transparent, Color(0xFF921B20)],
   );
 
   static const LinearGradient glassGradient = LinearGradient(
@@ -39,16 +44,16 @@ class AppTheme {
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
     colors: [
-      Color(0xFF121212),
-      Color(0xFF1A1A1A),
-      Color(0xFF121212),
+      Color(0xFF09090B),
+      Color(0xFF111113),
+      Color(0xFF09090B),
     ],
   );
 
   static const LinearGradient cardGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF2A2A2A), Color(0xFF1E1E1E)],
+    colors: [Color(0xFF252528), Color(0xFF202023)],
   );
 
   // ThemeData
@@ -62,7 +67,7 @@ class AppTheme {
       secondary: accentColor,
       surface: surfaceColor,
       background: backgroundColor,
-      error: Color(0xFFCF6679),
+      error: errorColor,
     ),
 
     // Typographie
@@ -114,7 +119,7 @@ class AppTheme {
 
     // AppBar
     appBarTheme: AppBarTheme(
-      backgroundColor: Colors.transparent,
+      backgroundColor: surfaceColor,
       elevation: 0,
       centerTitle: true,
       iconTheme: const IconThemeData(color: textPrimary),
@@ -165,7 +170,7 @@ class AppTheme {
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: textSecondary.withOpacity(0.2)),
+        borderSide: const BorderSide(color: outlineColor),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
@@ -178,7 +183,7 @@ class AppTheme {
     // Bottom Navigation
     bottomNavigationBarTheme: BottomNavigationBarThemeData(
       backgroundColor: surfaceColor,
-      selectedItemColor: primaryColor,
+      selectedItemColor: accentColor,
       unselectedItemColor: textSecondary,
       selectedLabelStyle: GoogleFonts.poppins(
         fontSize: 12,

@@ -131,17 +131,16 @@ class _SplashScreenNewState extends State<SplashScreenNew>
                   child: Container(
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: AppTheme.primaryGradient,
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppTheme.primaryColor.withOpacity(0.5),
-                          blurRadius: 30,
-                          spreadRadius: 10,
-                        ),
-                      ],
+                      color: Colors.black,
+                      borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                      border: Border.all(color: AppTheme.outlineColor),
                     ),
-                    child: Image.asset('assets/images/cinema.png', width: 150),
+                    child: Image.asset(
+                      'assets/images/majestic2.png',
+                      width: 170,
+                      height: 170,
+                      fit: BoxFit.contain,
+                    ),
                     /*const Icon(
                       Icons.movie_filter_rounded,
                       size: 50,
@@ -157,7 +156,7 @@ class _SplashScreenNewState extends State<SplashScreenNew>
                   shaderCallback: (bounds) => AppTheme.primaryGradient
                       .createShader(bounds),
                   child: Text(
-                    'CinéBook',
+                    'Majestic Cinéma Bénin',
                     style: Theme.of(context).textTheme.displayLarge?.copyWith(
                       fontSize: 25,
                       color: Colors.white,

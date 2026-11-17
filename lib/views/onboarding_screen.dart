@@ -28,7 +28,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   final List<OnboardingItem> _items = [
     OnboardingItem(
-      title: 'Bienvenue sur CinéBook',
+      title: 'Bienvenue chez Majestic Cinéma Bénin',
       description: 'Découvrez les meilleurs films en salle, explorez les nouveautés et plongez dans l’univers du cinéma.',
       icon: Icons.movie_rounded,
     ),
@@ -117,8 +117,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         children: [
                           // Illustration container
                           Container(
-                            width: 180,
-                            height: 180,
+                            width: 140,
+                            height: 140,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               gradient: AppTheme.primaryGradient,
@@ -132,11 +132,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             ),
                             child: Icon(
                               item.icon,
-                              size: 80,
+                              size: 40,
                               color: Colors.white,
                             ),
                           ),
-                          const SizedBox(height: 48),
+                          const SizedBox(height: 45),
                           Text(
                             item.title,
                             textAlign: TextAlign.center,

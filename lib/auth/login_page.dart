@@ -66,10 +66,11 @@ class _LoginPageState extends State<LoginPage> {
                       duration: const Duration(milliseconds: 800),
                       child: Hero(
                         tag: 'logo',
-                        child: Icon(
-                          Icons.movie_filter,
-                          size: 80,
-                          color: AppTheme.primaryColor,
+                        child: Image.asset(
+                          'assets/images/majestic2.png',
+                          width: 120,
+                          height: 120,
+                          fit: BoxFit.contain,
                         ),
                       ),
                     ),
@@ -78,7 +79,7 @@ class _LoginPageState extends State<LoginPage> {
                       duration: const Duration(milliseconds: 800),
                       delay: const Duration(milliseconds: 200),
                       child: Text(
-                        "CinéBook",
+                        "Majestic Cinéma Bénin",
                         style: Theme.of(context).textTheme.displayMedium,
                       ),
                     ),

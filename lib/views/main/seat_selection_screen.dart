@@ -72,7 +72,7 @@ class _SeatSelectionScreenState extends State<SeatSelectionScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Erreur: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppTheme.errorColor,
           ),
         );
       }
@@ -134,15 +134,15 @@ class _SeatSelectionScreenState extends State<SeatSelectionScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     _LegendItem(
-                      color: AppTheme.surfaceColor.withOpacity(0.5),
+                      color: AppTheme.seatAvailable,
                       label: 'Disponible',
                     ),
                     _LegendItem(
-                      color: AppTheme.textSecondary,
+                      color: AppTheme.seatReserved,
                       label: 'Réservé',
                     ),
                     _LegendItem(
-                      color: AppTheme.primaryColor,
+                      color: AppTheme.seatSelected,
                       label: 'Sélectionné',
                     ),
                   ],
@@ -296,15 +296,13 @@ class _SeatSelectionScreenState extends State<SeatSelectionScreen> {
                     margin: const EdgeInsets.symmetric(horizontal: 4),
                     decoration: BoxDecoration(
                       color: isReserved
-                          ? AppTheme.textSecondary
+                          ? AppTheme.seatReserved
                           : isSelected
-                          ? AppTheme.primaryColor
-                          : AppTheme.surfaceColor.withOpacity(0.5),
+                          ? AppTheme.seatSelected
+                          : AppTheme.seatAvailable,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: isSelected
-                            ? AppTheme.primaryColor
-                            : Colors.transparent,
+                        color: isSelected ? AppTheme.accentColor : Colors.transparent,
                         width: 2,
                       ),
                     ),
@@ -396,7 +394,7 @@ class _LegendItem extends StatelessWidget {
           child: Icon(
             Icons.event_seat,
             size: 14,
-            color: color == AppTheme.textSecondary
+            color: color == AppTheme.seatReserved
                 ? AppTheme.backgroundColor
                 : AppTheme.textSecondary,
           ),

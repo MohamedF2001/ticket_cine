@@ -57,7 +57,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Échec de la connexion. Vérifiez vos identifiants.'),
-            backgroundColor: AppTheme.primaryColor,
+            backgroundColor: AppTheme.errorColor,
           ),
         );
       }
@@ -66,7 +66,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Erreur: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppTheme.errorColor,
           ),
         );
       }
@@ -121,22 +121,16 @@ class _LoginScreenState extends State<LoginScreen> {
                         child: Hero(
                           tag: 'logo',
                           child: Container(
-                            padding: const EdgeInsets.all(20),
+                            width: 112,
+                            height: 112,
                             decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: AppTheme.primaryGradient,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppTheme.primaryColor.withOpacity(0.5),
-                                  blurRadius: 25,
-                                  spreadRadius: 8,
-                                ),
-                              ],
+                              color: Colors.black,
+                              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                              border: Border.all(color: AppTheme.outlineColor),
                             ),
                             child: Image.asset(
-                              'assets/images/cinema.png',
-                              width: 60,
-                              height: 60,
+                              'assets/images/majestic2.png',
+                              fit: BoxFit.contain,
                             ),
                           ),
                         ),
@@ -389,14 +383,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
               if (phone.isEmpty || newPassword.isEmpty || confirm.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Veuillez remplir tous les champs'), backgroundColor: Colors.red),
+                  const SnackBar(content: Text('Veuillez remplir tous les champs'), backgroundColor: AppTheme.errorColor),
                 );
                 return;
               }
 
               if (newPassword != confirm) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Les mots de passe ne correspondent pas'), backgroundColor: Colors.red),
+                  const SnackBar(content: Text('Les mots de passe ne correspondent pas'), backgroundColor: AppTheme.errorColor),
                 );
                 return;
               }
@@ -412,7 +406,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 );
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Échec de la réinitialisation du mot de passe'), backgroundColor: Colors.red),
+                  const SnackBar(content: Text('Échec de la réinitialisation du mot de passe'), backgroundColor: AppTheme.errorColor),
                 );
               }
             },

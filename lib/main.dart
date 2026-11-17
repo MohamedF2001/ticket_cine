@@ -18,7 +18,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Ticket Ciné',
+      title: 'Majestic Cinéma Bénin',
       theme: AppTheme.darkTheme,
       home:
           //SeatSelectionPage(),
