@@ -1,0 +1,2341 @@
+diff --git a/lib/views/main/seat_selection_screen.dart b/lib/views/main/seat_selection_screen.dart
+index d2d9e9c..0e0fe3d 100644
+--- a/lib/views/main/seat_selection_screen.dart
++++ b/lib/views/main/seat_selection_screen.dart
+@@ -1,10 +1,24 @@
++import 'dart:async';
++import 'dart:ui' as ui;
++
+ import 'package:flutter/material.dart';
++import 'package:flutter/services.dart';
+ import 'package:ticket_cine/models/session_response.dart';
+ import 'package:ticket_cine/services/auth_service.dart';
++import 'package:ticket_cine/services/movie_service.dart';
+ import 'package:ticket_cine/services/reservation_service.dart';
++import 'package:ticket_cine/services/seesion_service.dart';
+ 
+ import '../../theme/app_theme.dart';
+-
++import '../seat/cinema_3d_painter.dart';
++import '../seat/seat_layout.dart';
++import '../seat/seat_widgets.dart';
++
++/// Choix du siège : plan de salle, puis vue 3D depuis le siège sélectionné.
++///
++/// Parcours : un tap sur un siège le sélectionne ; la caméra s'envole ensuite
++/// vers ce siège (automatiquement après un court instant, ou via « Continuer »)
++/// et la feuille d'infos propose « Changer de siège » ou « Réserver ».
+ class SeatSelectionScreen extends StatefulWidget {
+   final Session seance;
+ 
+@@ -14,35 +28,229 @@ class SeatSelectionScreen extends StatefulWidget {
+   State<SeatSelectionScreen> createState() => _SeatSelectionScreenState();
+ }
+ 
+-class _SeatSelectionScreenState extends State<SeatSelectionScreen> {
++class _SeatSelectionScreenState extends State<SeatSelectionScreen>
++    with SingleTickerProviderStateMixin {
++  /// Ouvre la vue 3D automatiquement après la sélection d'un siège.
++  static const bool _autoOpenView = true;
++  static const Duration _autoOpenDelay = Duration(milliseconds: 650);
++
++  /// Multiplicateur de prix des rangées « recliner ».
++  /// 1.0 = même prix que les sièges standard (comportement historique).
++  static const double _reclinerPriceFactor = 1.0;
++
++  static const List<String> _weekdays = [
++    'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.', 'dim.', //
++  ];
++  static const List<String> _months = [
++    'janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', //
++    'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.', //
++  ];
++
+   final AuthService _authService = AuthService();
+   final ReservationService _reservationService = ReservationService();
++  final SessionService _sessionService = SessionService();
++  final MovieService _movieService = MovieService();
+ 
++  late Session _seance;
++  List<Session> _sessions = [];
++  Set<String> _reservedSeats = {};
+   String? _selectedSeat;
+-  List<String> _reservedSeats = [];
+   bool _isLoading = false;
+ 
++  /// Vrai quand la vue 3D est affichée (ou en cours d'ouverture).
++  bool _view3d = false;
++  int _viewRow = 0;
++  int _viewCol = 1;
++
++  ui.Image? _screenImage;
++  Cinema3DPainter? _painter;
++  Timer? _autoOpenTimer;
++  int _seatsRequest = 0;
++
++  /// 0 = plan de salle, 1 = vue depuis le siège.
++  late final AnimationController _flight;
++
+   @override
+   void initState() {
+     super.initState();
++    _seance = widget.seance;
++    _flight = AnimationController(
++      vsync: this,
++      duration: const Duration(milliseconds: 1150),
++      reverseDuration: const Duration(milliseconds: 700),
++    );
+     _loadReservedSeats();
++    _loadSessions();
++    _loadScreenImage();
++  }
++
++  @override
++  void dispose() {
++    _autoOpenTimer?.cancel();
++    _flight.dispose();
++    _screenImage?.dispose();
++    super.dispose();
+   }
+ 
++  // ---------------------------------------------------------------------------
++  // Données
++  // ---------------------------------------------------------------------------
++
+   Future<void> _loadReservedSeats() async {
++    final request = ++_seatsRequest;
+     try {
+-      final seats = await _reservationService.getReservedSeats(
+-        widget.seance.id,
+-      );
++      final seats = await _reservationService.getReservedSeats(_seance.id);
++      if (!mounted || request != _seatsRequest) return;
+       setState(() {
+-        _reservedSeats = seats;
++        _reservedSeats = seats.toSet();
++        if (_selectedSeat != null && _reservedSeats.contains(_selectedSeat)) {
++          _selectedSeat = null;
++        }
+       });
++      if (_view3d && _selectedSeat == null) _closeView();
++    } catch (e) {
++      debugPrint('Erreur chargement sièges: $e');
++    }
++  }
++
++  /// Autres horaires du même film, dans la même salle et le même jour.
++  Future<void> _loadSessions() async {
++    try {
++      final base = widget.seance;
++      final response = await _sessionService.getSeancesByFilm(
++        base.filmId.toString(),
++      );
++      final sameDay = response.seances
++          .where(
++            (s) =>
++                s.salle == base.salle &&
++                s.date.year == base.date.year &&
++                s.date.month == base.date.month &&
++                s.date.day == base.date.day,
++          )
++          .toList();
++      if (!sameDay.any((s) => s.id == base.id)) sameDay.add(base);
++      sameDay.sort((a, b) => a.horaire.compareTo(b.horaire));
++      if (!mounted) return;
++      setState(() => _sessions = sameDay);
++    } catch (e) {
++      debugPrint('Erreur chargement séances: $e');
++    }
++  }
++
++  /// Image affichée sur l'écran de cinéma : fond du film, sinon l'affiche.
++  Future<void> _loadScreenImage() async {
++    try {
++      String? url;
++      try {
++        final details = await _movieService.fetchMovieDetails(
++          widget.seance.filmId,
++        );
++        final backdrop = details.backdropPath;
++        if (backdrop != null && backdrop.isNotEmpty) {
++          url = 'https://image.tmdb.org/t/p/w780$backdrop';
++        }
++      } catch (_) {
++        // On retombe sur l'affiche ci-dessous.
++      }
++      if (url == null && widget.seance.imgFilm.isNotEmpty) {
++        url = 'https://image.tmdb.org/t/p/w500${widget.seance.imgFilm}';
++      }
++      if (url == null) return;
++      final image = await _resolveImage(NetworkImage(url));
++      if (!mounted) {
++        image.dispose();
++        return;
++      }
++      _screenImage?.dispose();
++      setState(() => _screenImage = image);
+     } catch (e) {
+-      print('Erreur chargement sièges: $e');
++      debugPrint('Erreur chargement image écran: $e');
+     }
+   }
+ 
++  Future<ui.Image> _resolveImage(ImageProvider provider) {
++    final completer = Completer<ui.Image>();
++    final stream = provider.resolve(const ImageConfiguration());
++    late ImageStreamListener listener;
++    listener = ImageStreamListener(
++      (info, _) {
++        if (completer.isCompleted) {
++          stream.removeListener(listener);
++          return;
++        }
++        // Référence propre à cet écran : l'image reste valide même si le cache
++        // d'images de Flutter l'évince.
++        completer.complete(info.image.clone());
++        stream.removeListener(listener);
++      },
++      onError: (Object error, StackTrace? stackTrace) {
++        if (!completer.isCompleted) completer.completeError(error, stackTrace);
++        stream.removeListener(listener);
++      },
++    );
++    stream.addListener(listener);
++    return completer.future;
++  }
++
++  // ---------------------------------------------------------------------------
++  // Actions
++  // ---------------------------------------------------------------------------
++
++  void _switchSession(Session session) {
++    if (session.id == _seance.id || _isLoading) return;
++    _autoOpenTimer?.cancel();
++    setState(() {
++      _seance = session;
++      _selectedSeat = null;
++      _reservedSeats = {};
++    });
++    _loadReservedSeats();
++  }
++
++  void _onSeatTap(String id) {
++    if (_reservedSeats.contains(id) || _view3d) return;
++    HapticFeedback.selectionClick();
++    _autoOpenTimer?.cancel();
++    setState(() => _selectedSeat = _selectedSeat == id ? null : id);
++    if (_selectedSeat != null && _autoOpenView) {
++      _autoOpenTimer = Timer(_autoOpenDelay, () {
++        if (mounted && !_view3d && _selectedSeat != null) _openView();
++      });
++    }
++  }
++
++  void _openView() {
++    final seat = _selectedSeat;
++    if (seat == null || _view3d) return;
++    final position = CinemaLayout.parse(seat);
++    if (position == null) return;
++    _autoOpenTimer?.cancel();
++    setState(() {
++      _view3d = true;
++      _viewRow = position.row;
++      _viewCol = position.col;
++    });
++    _flight.forward();
++  }
++
++  void _closeView() {
++    if (!_view3d) return;
++    setState(() => _view3d = false);
++    _flight.reverse();
++  }
++
++  int _priceFor(String seatId) {
++    final position = CinemaLayout.parse(seatId);
++    final recliner =
++        position != null &&
++        CinemaLayout.kindOfRow(position.row) == SeatKind.recliner;
++    return (_seance.prix * (recliner ? _reclinerPriceFactor : 1.0)).round();
++  }
++
+   Future<void> _bookSeat() async {
+-    if (_selectedSeat == null) return;
++    final seat = _selectedSeat;
++    if (seat == null || _isLoading) return;
+ 
+     setState(() => _isLoading = true);
+ 
+@@ -52,9 +260,9 @@ class _SeatSelectionScreenState extends State<SeatSelectionScreen> {
+ 
+       await _reservationService.createReservation(
+         userId: user.id,
+-        seanceId: widget.seance.id,
+-        numeroSiege: _selectedSeat!,
+-        prixTotal: widget.seance.prix,
++        seanceId: _seance.id,
++        numeroSiege: seat,
++        prixTotal: _priceFor(seat),
+       );
+ 
+       if (!mounted) return;
+@@ -81,335 +289,674 @@ class _SeatSelectionScreenState extends State<SeatSelectionScreen> {
+     }
+   }
+ 
++  void _showInfo() {
++    showDialog<void>(
++      context: context,
++      builder: (dialogContext) {
++        Widget line(String label, String value) => Padding(
++          padding: const EdgeInsets.symmetric(vertical: 3),
++          child: Row(
++            crossAxisAlignment: CrossAxisAlignment.start,
++            children: [
++              SizedBox(
++                width: 70,
++                child: Text(
++                  label,
++                  style: seatText(
++                    dialogContext,
++                    size: 13,
++                    color: SeatPalette.muted,
++                  ),
++                ),
++              ),
++              Expanded(
++                child: Text(
++                  value,
++                  style: seatText(
++                    dialogContext,
++                    size: 13,
++                    weight: FontWeight.w500,
++                  ),
++                ),
++              ),
++            ],
++          ),
++        );
++
++        return AlertDialog(
++          backgroundColor: SeatPalette.sheet,
++          title: Text(
++            _seance.film,
++            style: seatText(dialogContext, size: 17, weight: FontWeight.w600),
++          ),
++          content: Column(
++            mainAxisSize: MainAxisSize.min,
++            crossAxisAlignment: CrossAxisAlignment.start,
++            children: [
++              if (_seance.salle.isNotEmpty) line('Salle', _seance.salle),
++              line('Date', _formatDay(_seance.date)),
++              line('Heure', _formatTime(_seance.horaire)),
++              line('Type', _seance.typeSeance),
++              line('Prix', '${_seance.prix} F CFA'),
++              const SizedBox(height: 12),
++              Text(
++                'Touchez un siège pour voir la salle depuis votre place.',
++                style: seatText(
++                  dialogContext,
++                  size: 12,
++                  color: SeatPalette.muted,
++                  height: 1.4,
++                ),
++              ),
++            ],
++          ),
++          actions: [
++            TextButton(
++              onPressed: () => Navigator.of(dialogContext).pop(),
++              child: Text(
++                'Fermer',
++                style: seatText(
++                  dialogContext,
++                  size: 14,
++                  weight: FontWeight.w600,
++                  color: SeatPalette.selected,
++                ),
++              ),
++            ),
++          ],
++        );
++      },
++    );
++  }
++
++  // ---------------------------------------------------------------------------
++  // Formats
++  // ---------------------------------------------------------------------------
++
++  String _two(int n) => n.toString().padLeft(2, '0');
++
++  String _formatTime(DateTime d) => '${_two(d.hour)}:${_two(d.minute)}';
++
++  String _formatDay(DateTime d) =>
++      '${_weekdays[d.weekday - 1]} ${d.day} ${_months[d.month - 1]}';
++
++  String _qualityLabel(SeatViewQuality quality) {
++    switch (quality) {
++      case SeatViewQuality.upClose:
++        return 'DE PRÈS';
++      case SeatViewQuality.sweetSpot:
++        return 'PLACE IDÉALE';
++      case SeatViewQuality.fullPicture:
++        return "VUE D'ENSEMBLE";
++    }
++  }
++
++  double _smooth(double a, double b, double t) {
++    final x = ((t - a) / (b - a)).clamp(0.0, 1.0).toDouble();
++    return x * x * (3 - 2 * x);
++  }
++
++  Cinema3DPainter _painterFor() {
++    final current = _painter;
++    if (current != null &&
++        current.row == _viewRow &&
++        current.col == _viewCol &&
++        identical(current.screenImage, _screenImage)) {
++      return current;
++    }
++    return _painter = Cinema3DPainter(
++      animation: _flight,
++      row: _viewRow,
++      col: _viewCol,
++      screenImage: _screenImage,
++    );
++  }
++
++  // ---------------------------------------------------------------------------
++  // Interface
++  // ---------------------------------------------------------------------------
++
+   @override
+   Widget build(BuildContext context) {
+-    return Scaffold(
+-      backgroundColor: AppTheme.backgroundColor,
+-      appBar: AppBar(
+-        foregroundColor: Colors.white,
+-        title: const Text('Choisir votre siège',style: TextStyle(color: Colors.white),),
+-        backgroundColor: Colors.transparent,
+-        elevation: 0,
++    final scene = RepaintBoundary(
++      child: CustomPaint(painter: _painterFor(), size: Size.infinite),
++    );
++    final mapLayer = _buildMapLayer(context);
++    final overlay = _buildViewOverlay(context);
++    final sheet = _buildSheet(context);
++
++    return PopScope<Object?>(
++      canPop: !_view3d,
++      onPopInvokedWithResult: (didPop, result) {
++        if (!didPop) _closeView();
++      },
++      child: Scaffold(
++        backgroundColor: SeatPalette.background,
++        body: AnimatedBuilder(
++          animation: _flight,
++          builder: (context, _) {
++            final t = _flight.value;
++            return Stack(
++              fit: StackFit.expand,
++              children: [
++                Opacity(opacity: _smooth(0.02, 0.3, t), child: scene),
++                IgnorePointer(
++                  ignoring: _view3d,
++                  child: Opacity(
++                    opacity: 1 - _smooth(0.0, 0.32, t),
++                    child: mapLayer,
++                  ),
++                ),
++                IgnorePointer(
++                  ignoring: !_view3d,
++                  child: Opacity(opacity: _smooth(0.7, 1.0, t), child: overlay),
++                ),
++                Align(
++                  alignment: Alignment.bottomCenter,
++                  child: IgnorePointer(
++                    ignoring: !_view3d,
++                    child: Transform.translate(
++                      offset: Offset(0, (1 - _smooth(0.55, 1.0, t)) * 460),
++                      child: sheet,
++                    ),
++                  ),
++                ),
++              ],
++            );
++          },
++        ),
+       ),
+-      body: Column(
+-        children: [
+-          // Écran de cinéma
+-          Container(
+-            margin: const EdgeInsets.symmetric(
+-              //horizontal: AppTheme.paddingLarge,
+-              //vertical: AppTheme.paddingMedium,
+-            ),
+-            child: CustomPaint(
+-              size: const Size(double.infinity, 50),
+-              painter: _ScreenPainter(),
+-            ),
++    );
++  }
++
++  // --- Plan de salle ----------------------------------------------------------
++
++  Widget _buildMapLayer(BuildContext context) {
++    return Column(
++      children: [
++        SafeArea(
++          bottom: false,
++          child: Column(
++            children: [
++              _buildHeader(context),
++              const SizedBox(height: 14),
++              _buildTimeChips(context),
++            ],
+           ),
++        ),
++        const ScreenArc(),
++        Expanded(
++          child: SeatMap(
++            reservedSeats: _reservedSeats,
++            selectedSeat: _selectedSeat,
++            onSeatTap: _onSeatTap,
++          ),
++        ),
++        const SeatLegend(),
++        const SizedBox(height: 16),
++        _buildBottomBar(context),
++      ],
++    );
++  }
+ 
+-          const SizedBox(height: 22),
++  Widget _buildHeader(BuildContext context) {
++    final subtitle = [
++      if (_seance.salle.isNotEmpty) _seance.salle,
++      _formatDay(_seance.date),
++    ].join(' · ');
+ 
+-          // Grille de sièges
++    return Padding(
++      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
++      child: Row(
++        children: [
++          _CircleButton(
++            icon: Icons.chevron_left_rounded,
++            semanticLabel: 'Retour',
++            onTap: () => Navigator.of(context).maybePop(),
++          ),
+           Expanded(
+-            child: SingleChildScrollView(
+-              /*padding: const EdgeInsets.symmetric(
+-                horizontal: AppTheme.paddingLarge,
+-              ),*/
+-              child: _buildSeatGrid(),
++            child: Column(
++              children: [
++                Text(
++                  _seance.film,
++                  maxLines: 1,
++                  overflow: TextOverflow.ellipsis,
++                  textAlign: TextAlign.center,
++                  style: seatText(context, size: 16, weight: FontWeight.w600),
++                ),
++                const SizedBox(height: 2),
++                Text(
++                  subtitle,
++                  maxLines: 1,
++                  overflow: TextOverflow.ellipsis,
++                  style: seatText(context, size: 11, color: SeatPalette.muted),
++                ),
++              ],
+             ),
+           ),
++          _CircleButton(
++            icon: Icons.info_outline_rounded,
++            semanticLabel: 'Informations sur la séance',
++            onTap: _showInfo,
++          ),
++        ],
++      ),
++    );
++  }
+ 
+-          // Légende
+-          Container(
+-            padding: const EdgeInsets.all(AppTheme.paddingLarge),
+-            decoration: BoxDecoration(
+-              color: AppTheme.surfaceColor,
+-              borderRadius: const BorderRadius.only(
+-                topLeft: Radius.circular(AppTheme.radiusLarge),
+-                topRight: Radius.circular(AppTheme.radiusLarge),
++  Widget _buildTimeChips(BuildContext context) {
++    final sessions = _sessions.isEmpty ? [_seance] : _sessions;
++    return SingleChildScrollView(
++      scrollDirection: Axis.horizontal,
++      padding: const EdgeInsets.symmetric(horizontal: 16),
++      child: Container(
++        padding: const EdgeInsets.all(4),
++        decoration: BoxDecoration(
++          color: SeatPalette.chipBar,
++          borderRadius: BorderRadius.circular(24),
++        ),
++        child: Row(
++          mainAxisSize: MainAxisSize.min,
++          children: [for (final s in sessions) _buildTimeChip(context, s)],
++        ),
++      ),
++    );
++  }
++
++  Widget _buildTimeChip(BuildContext context, Session session) {
++    final active = session.id == _seance.id;
++    return GestureDetector(
++      behavior: HitTestBehavior.opaque,
++      onTap: () => _switchSession(session),
++      child: AnimatedContainer(
++        duration: const Duration(milliseconds: 200),
++        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
++        decoration: BoxDecoration(
++          color: active ? SeatPalette.chipSelected : Colors.transparent,
++          borderRadius: BorderRadius.circular(20),
++        ),
++        child: Row(
++          mainAxisSize: MainAxisSize.min,
++          crossAxisAlignment: CrossAxisAlignment.baseline,
++          textBaseline: TextBaseline.alphabetic,
++          children: [
++            Text(
++              _formatTime(session.horaire),
++              style: seatText(
++                context,
++                size: 13,
++                weight: FontWeight.w600,
++                color: active ? const Color(0xFF0B0B0D) : SeatPalette.muted,
++              ),
++            ),
++            const SizedBox(width: 4),
++            Text(
++              session.typeSeance.toUpperCase(),
++              style: seatText(
++                context,
++                size: 8,
++                weight: FontWeight.w600,
++                color: active ? const Color(0xFF6B6A70) : SeatPalette.faint,
++                letterSpacing: 0.6,
+               ),
+             ),
++          ],
++        ),
++      ),
++    );
++  }
++
++  Widget _buildBottomBar(BuildContext context) {
++    final seat = _selectedSeat;
++    final position = seat == null ? null : CinemaLayout.parse(seat);
++    final enabled = position != null;
++
++    return Container(
++      padding: EdgeInsets.fromLTRB(
++        22,
++        18,
++        18,
++        18 + MediaQuery.of(context).padding.bottom,
++      ),
++      decoration: const BoxDecoration(
++        color: SeatPalette.surface,
++        borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
++      ),
++      child: Row(
++        children: [
++          Expanded(
+             child: Column(
++              crossAxisAlignment: CrossAxisAlignment.start,
+               mainAxisSize: MainAxisSize.min,
+               children: [
+-                Row(
+-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+-                  children: [
+-                    _LegendItem(
+-                      color: AppTheme.seatAvailable,
+-                      label: 'Disponible',
+-                    ),
+-                    _LegendItem(
+-                      color: AppTheme.seatReserved,
+-                      label: 'Réservé',
+-                    ),
+-                    _LegendItem(
+-                      color: AppTheme.seatSelected,
+-                      label: 'Sélectionné',
+-                    ),
+-                  ],
++                Text(
++                  position == null
++                      ? 'Choisissez votre siège'
++                      : 'Rangée ${CinemaLayout.rowLetter(position.row)} · Siège ${position.col}',
++                  style: seatText(context, size: 11, color: SeatPalette.muted),
++                ),
++                const SizedBox(height: 4),
++                Text(
++                  seat == null ? '—' : '${_priceFor(seat)} F CFA',
++                  style: seatText(context, size: 19, weight: FontWeight.w600),
+                 ),
++              ],
++            ),
++          ),
++          const SizedBox(width: 12),
++          Material(
++            color: enabled ? SeatPalette.selected : const Color(0xFF1C1B1F),
++            borderRadius: BorderRadius.circular(26),
++            child: InkWell(
++              borderRadius: BorderRadius.circular(26),
++              onTap: enabled ? _openView : null,
++              child: Container(
++                height: 52,
++                padding: const EdgeInsets.symmetric(horizontal: 30),
++                alignment: Alignment.center,
++                child: Text(
++                  'Continuer',
++                  style: seatText(
++                    context,
++                    size: 15,
++                    weight: FontWeight.w600,
++                    color: enabled ? SeatPalette.onSelected : SeatPalette.faint,
++                  ),
++                ),
++              ),
++            ),
++          ),
++        ],
++      ),
++    );
++  }
+ 
+-                const SizedBox(height: 16),
++  // --- Vue 3D -------------------------------------------------------------------
+ 
+-                // Infos de la réservation
+-                if (_selectedSeat != null) ...[
+-                  Container(
+-                    padding: const EdgeInsets.all(AppTheme.paddingMedium),
++  Widget _buildViewOverlay(BuildContext context) {
++    final seatId = CinemaLayout.seatId(_viewRow, _viewCol);
++    return Align(
++      alignment: Alignment.topCenter,
++      child: SafeArea(
++        bottom: false,
++        child: Padding(
++          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
++          child: Row(
++            children: [
++              _CircleButton(
++                icon: Icons.chevron_left_rounded,
++                semanticLabel: 'Revenir au plan de salle',
++                background: const Color(0x99000000),
++                onTap: _closeView,
++              ),
++              Expanded(
++                child: Center(
++                  child: Container(
++                    padding: const EdgeInsets.symmetric(
++                      horizontal: 14,
++                      vertical: 9,
++                    ),
+                     decoration: BoxDecoration(
+-                      gradient: AppTheme.cardGradient,
+-                      borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
++                      color: const Color(0x99000000),
++                      borderRadius: BorderRadius.circular(20),
+                     ),
+                     child: Row(
+-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
++                      mainAxisSize: MainAxisSize.min,
+                       children: [
+-                        Expanded(
+-                          child: Column(
+-                            crossAxisAlignment: CrossAxisAlignment.start,
+-                            children: [
+-                              Text(
+-                                'Siège $_selectedSeat',
+-                                style: Theme.of(context)
+-                                    .textTheme
+-                                    .titleMedium
+-                                    ?.copyWith(
+-                                  fontWeight: FontWeight.bold,
+-                                  color: Colors.white
+-                                ),
+-                              ),
+-                              Text(
+-                                widget.seance.film,
+-                                //style: Theme.of(context).textTheme.bodyMedium,
+-                                style: TextStyle(
+-                                  fontSize: 14,
+-                                  fontWeight: FontWeight.w400,
+-                                  letterSpacing: 0.25,
+-                                  color: Colors.white
+-                                ),
+-                              ),
+-                            ],
++                        Container(
++                          width: 6,
++                          height: 6,
++                          decoration: const BoxDecoration(
++                            color: SeatPalette.selected,
++                            shape: BoxShape.circle,
+                           ),
+                         ),
++                        const SizedBox(width: 8),
+                         Text(
+-                          '${widget.seance.prix} F CFA',
+-                          style: Theme.of(context)
+-                              .textTheme
+-                              .headlineSmall
+-                              ?.copyWith(
+-                            fontSize: 20,
+-                            color: AppTheme.accentColor,
+-                            fontWeight: FontWeight.bold,
++                          'Vue depuis $seatId',
++                          style: seatText(
++                            context,
++                            size: 12,
++                            weight: FontWeight.w500,
+                           ),
+                         ),
+                       ],
+                     ),
+                   ),
+-                  const SizedBox(height: 16),
+-                ],
+-
+-                // Bouton de réservation
+-                SizedBox(
+-                  width: double.infinity,
+-                  child: ElevatedButton(
+-                    onPressed: _selectedSeat == null || _isLoading
+-                        ? null
+-                        : _bookSeat,
+-                    style: ElevatedButton.styleFrom(
+-                      backgroundColor: AppTheme.primaryColor,
+-                      disabledBackgroundColor:
+-                      AppTheme.textSecondary.withOpacity(0.2),
+-                      padding: const EdgeInsets.symmetric(vertical: 16),
+-                      shape: RoundedRectangleBorder(
+-                        borderRadius: BorderRadius.circular(
+-                          AppTheme.radiusMedium,
+-                        ),
+-                      ),
+-                    ),
+-                    child: _isLoading
+-                        ? const SizedBox(
+-                      height: 24,
+-                      width: 24,
+-                      child: CircularProgressIndicator(
+-                        color: Colors.white,
+-                        strokeWidth: 2,
+-                      ),
+-                    )
+-                        : const Text(
+-                      'Réserver',
+-                      style: TextStyle(
+-                        fontSize: 18,
+-                        fontWeight: FontWeight.bold,
+-                        color: Colors.white
+-                      ),
+-                    ),
+-                  ),
+                 ),
+-              ],
+-            ),
++              ),
++              const SizedBox(width: 40),
++            ],
+           ),
+-        ],
++        ),
+       ),
+     );
+   }
+ 
+-  Widget _buildSeatGrid() {
+-    const rows = 8;
+-    const seatsPerRow = 7;
+-    const totalSeats = rows * seatsPerRow;
+-
+-    return Column(
+-      children: List.generate(rows, (rowIndex) {
+-        return Padding(
+-          padding: const EdgeInsets.only(bottom: 12),
+-          child: Row(
+-            mainAxisAlignment: MainAxisAlignment.center,
++  Widget _buildSheet(BuildContext context) {
++    final stats = CinemaLayout.statsFor(_viewRow, _viewCol);
++    final seatId = stats.id;
++    final recliner = stats.kind == SeatKind.recliner;
++    final price = _priceFor(seatId);
++
++    return Container(
++      width: double.infinity,
++      padding: EdgeInsets.fromLTRB(
++        20,
++        10,
++        20,
++        18 + MediaQuery.of(context).padding.bottom,
++      ),
++      decoration: const BoxDecoration(
++        color: SeatPalette.sheet,
++        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
++        border: Border(top: BorderSide(color: Color(0x14FFFFFF))),
++      ),
++      child: Column(
++        mainAxisSize: MainAxisSize.min,
++        children: [
++          Container(
++            width: 36,
++            height: 4,
++            decoration: BoxDecoration(
++              color: const Color(0xFF3A3338),
++              borderRadius: BorderRadius.circular(2),
++            ),
++          ),
++          const SizedBox(height: 14),
++          Row(
++            crossAxisAlignment: CrossAxisAlignment.start,
+             children: [
+-              // Lettre de la rangée
+-              SizedBox(
+-                width: 30,
+-                child: Text(
+-                  String.fromCharCode(65 + rowIndex),
+-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+-                    color: AppTheme.textSecondary,
+-                  ),
+-                  textAlign: TextAlign.center,
++              Expanded(
++                child: Column(
++                  crossAxisAlignment: CrossAxisAlignment.start,
++                  children: [
++                    Text(
++                      _qualityLabel(stats.quality),
++                      style: seatText(
++                        context,
++                        size: 10,
++                        weight: FontWeight.w600,
++                        color: SeatPalette.selected,
++                        letterSpacing: 1.4,
++                      ),
++                    ),
++                    const SizedBox(height: 6),
++                    Text(
++                      'Rangée ${CinemaLayout.rowLetter(stats.row)}, Siège ${stats.col}',
++                      style: seatText(
++                        context,
++                        size: 23,
++                        weight: FontWeight.w600,
++                        height: 1.1,
++                      ),
++                    ),
++                    const SizedBox(height: 5),
++                    Text(
++                      '${recliner ? 'Recliner' : 'Standard'} · $price F CFA',
++                      style: seatText(
++                        context,
++                        size: 12,
++                        color: SeatPalette.muted,
++                      ),
++                    ),
++                  ],
+                 ),
+               ),
+-
+-              // Sièges
+-              ...List.generate(seatsPerRow, (seatIndex) {
+-                final seatNumber =
+-                    '${String.fromCharCode(65 + rowIndex)}${seatIndex + 1}';
+-                final isReserved = _reservedSeats.contains(seatNumber);
+-                final isSelected = _selectedSeat == seatNumber;
+-
+-                return GestureDetector(
+-                  onTap: isReserved
+-                      ? null
+-                      : () {
+-                    setState(() {
+-                      _selectedSeat =
+-                      isSelected ? null : seatNumber;
+-                    });
+-                  },
+-                  child: Container(
+-                    width: 36,
+-                    height: 36,
+-                    margin: const EdgeInsets.symmetric(horizontal: 4),
+-                    decoration: BoxDecoration(
+-                      color: isReserved
+-                          ? AppTheme.seatReserved
+-                          : isSelected
+-                          ? AppTheme.seatSelected
+-                          : AppTheme.seatAvailable,
+-                      borderRadius: BorderRadius.circular(8),
+-                      border: Border.all(
+-                        color: isSelected ? AppTheme.accentColor : Colors.transparent,
+-                        width: 2,
++              const SizedBox(width: 12),
++              MiniSeatMap(row: stats.row, col: stats.col),
++            ],
++          ),
++          const SizedBox(height: 16),
++          Row(
++            children: [
++              _buildStatTile(context, stats.distanceLabel, "à l'écran"),
++              const SizedBox(width: 8),
++              _buildStatTile(
++                context,
++                '${stats.fieldOfView}°',
++                'champ de vision',
++              ),
++              const SizedBox(width: 8),
++              _buildStatTile(context, stats.offsetLabel, stats.offsetCaption),
++            ],
++          ),
++          const SizedBox(height: 16),
++          Row(
++            children: [
++              Expanded(
++                flex: 10,
++                child: OutlinedButton(
++                  onPressed: _isLoading ? null : _closeView,
++                  style: OutlinedButton.styleFrom(
++                    minimumSize: const Size.fromHeight(52),
++                    foregroundColor: Colors.white,
++                    side: const BorderSide(color: Color(0xFF3A3338)),
++                    shape: RoundedRectangleBorder(
++                      borderRadius: BorderRadius.circular(26),
++                    ),
++                  ),
++                  child: FittedBox(
++                    fit: BoxFit.scaleDown,
++                    child: Text(
++                      'Changer de siège',
++                      style: seatText(
++                        context,
++                        size: 14,
++                        weight: FontWeight.w600,
+                       ),
+                     ),
+-                    child: Icon(
+-                      Icons.event_seat,
+-                      size: 20,
+-                      color: isReserved
+-                          ? AppTheme.backgroundColor
+-                          : isSelected
+-                          ? Colors.white
+-                          : AppTheme.textSecondary,
++                  ),
++                ),
++              ),
++              const SizedBox(width: 10),
++              Expanded(
++                flex: 14,
++                child: ElevatedButton(
++                  onPressed: _isLoading ? null : _bookSeat,
++                  style: ElevatedButton.styleFrom(
++                    minimumSize: const Size.fromHeight(52),
++                    backgroundColor: SeatPalette.buttonLight,
++                    disabledBackgroundColor: SeatPalette.buttonLight,
++                    foregroundColor: const Color(0xFF0B0B0D),
++                    elevation: 0,
++                    shape: RoundedRectangleBorder(
++                      borderRadius: BorderRadius.circular(26),
+                     ),
+                   ),
+-                );
+-              }),
++                  child: _isLoading
++                      ? const SizedBox(
++                          width: 22,
++                          height: 22,
++                          child: CircularProgressIndicator(
++                            strokeWidth: 2.2,
++                            color: Color(0xFF0B0B0D),
++                          ),
++                        )
++                      : FittedBox(
++                          fit: BoxFit.scaleDown,
++                          child: Text(
++                            'Réserver · $price F CFA',
++                            style: seatText(
++                              context,
++                              size: 14,
++                              weight: FontWeight.w600,
++                              color: const Color(0xFF0B0B0D),
++                            ),
++                          ),
++                        ),
++                ),
++              ),
+             ],
+           ),
+-        );
+-      }),
++        ],
++      ),
+     );
+   }
+-}
+-
+-class _ScreenPainter extends CustomPainter {
+-  @override
+-  void paint(Canvas canvas, Size size) {
+-    final paint = Paint()
+-      ..color = AppTheme.textSecondary.withOpacity(0.3)
+-      ..strokeWidth = 3
+-      ..style = PaintingStyle.stroke;
+-
+-    final path = Path();
+-    path.moveTo(0, size.height);
+-    path.quadraticBezierTo(
+-      size.width / 2,
+-      0,
+-      size.width,
+-      size.height,
+-    );
+ 
+-    canvas.drawPath(path, paint);
+-
+-    // Texte "ÉCRAN"
+-    final textPainter = TextPainter(
+-      text: const TextSpan(
+-        text: 'ÉCRAN',
+-        style: TextStyle(
+-          color: AppTheme.textSecondary,
+-          fontSize: 12,
+-          fontWeight: FontWeight.w600,
+-          letterSpacing: 2,
++  Widget _buildStatTile(BuildContext context, String value, String caption) {
++    return Expanded(
++      child: Container(
++        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
++        decoration: BoxDecoration(
++          color: SeatPalette.tile,
++          borderRadius: BorderRadius.circular(14),
++          border: Border.all(color: const Color(0x0DFFFFFF)),
++        ),
++        child: Column(
++          crossAxisAlignment: CrossAxisAlignment.start,
++          children: [
++            Text(
++              value,
++              style: seatText(context, size: 19, weight: FontWeight.w600),
++            ),
++            const SizedBox(height: 2),
++            FittedBox(
++              fit: BoxFit.scaleDown,
++              alignment: Alignment.centerLeft,
++              child: Text(
++                caption,
++                style: seatText(context, size: 10, color: SeatPalette.muted),
++              ),
++            ),
++          ],
+         ),
+-      ),
+-      textDirection: TextDirection.ltr,
+-    );
+-
+-    textPainter.layout();
+-    textPainter.paint(
+-      canvas,
+-      Offset(
+-        (size.width - textPainter.width) / 2,
+-        size.height + 8,
+       ),
+     );
+   }
+-
+-  @override
+-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+ }
+ 
+-class _LegendItem extends StatelessWidget {
+-  final Color color;
+-  final String label;
++class _CircleButton extends StatelessWidget {
++  const _CircleButton({
++    required this.icon,
++    required this.onTap,
++    required this.semanticLabel,
++    this.background = const Color(0xFF1A191D),
++  });
+ 
+-  const _LegendItem({required this.color, required this.label});
++  final IconData icon;
++  final VoidCallback onTap;
++  final String semanticLabel;
++  final Color background;
+ 
+   @override
+   Widget build(BuildContext context) {
+-    return Row(
+-      mainAxisSize: MainAxisSize.min,
+-      children: [
+-        Container(
+-          width: 24,
+-          height: 24,
+-          decoration: BoxDecoration(
+-            color: color,
+-            borderRadius: BorderRadius.circular(6),
+-          ),
+-          child: Icon(
+-            Icons.event_seat,
+-            size: 14,
+-            color: color == AppTheme.seatReserved
+-                ? AppTheme.backgroundColor
+-                : AppTheme.textSecondary,
++    return Semantics(
++      button: true,
++      label: semanticLabel,
++      child: Material(
++        color: background,
++        shape: const CircleBorder(),
++        child: InkWell(
++          customBorder: const CircleBorder(),
++          onTap: onTap,
++          child: SizedBox(
++            width: 40,
++            height: 40,
++            child: Icon(icon, size: 22, color: Colors.white),
+           ),
+         ),
+-        const SizedBox(width: 8),
+-        Text(
+-          label,
+-          style: TextStyle(
+-              fontWeight: FontWeight.w400,
+-              color: Colors.white,
+-              fontSize: 12,
+-              letterSpacing: 0.4
+-          )
+-        ),
+-      ],
++      ),
+     );
+   }
+ }
+diff --git a/lib/views/seat/cinema_3d_painter.dart b/lib/views/seat/cinema_3d_painter.dart
+new file mode 100644
+index 0000000..3f3e5b4
+--- /dev/null
++++ b/lib/views/seat/cinema_3d_painter.dart
+@@ -0,0 +1,508 @@
++import 'dart:math' as math;
++import 'dart:typed_data';
++import 'dart:ui' as ui;
++
++import 'package:flutter/material.dart';
++
++import 'seat_layout.dart';
++
++/// Vecteur 3D minimal. Repère : x vers la droite, y vers le haut, z vers le
++/// fond de la salle (l'écran est dans le plan z = 0).
++class _V3 {
++  const _V3(this.x, this.y, this.z);
++
++  final double x;
++  final double y;
++  final double z;
++
++  _V3 operator -(_V3 o) => _V3(x - o.x, y - o.y, z - o.z);
++
++  double dot(_V3 o) => x * o.x + y * o.y + z * o.z;
++
++  _V3 cross(_V3 o) =>
++      _V3(y * o.z - z * o.y, z * o.x - x * o.z, x * o.y - y * o.x);
++}
++
++/// Point projeté à l'écran, avec sa profondeur dans le repère de la caméra.
++class _Pt {
++  const _Pt(this.x, this.y, this.depth);
++
++  final double x;
++  final double y;
++  final double depth;
++}
++
++/// Caméra à sténopé : position, lacet (yaw) et tangage (pitch).
++class _Camera {
++  _Camera({
++    required this.pos,
++    required double yaw,
++    required double pitch,
++    required this.focal,
++    required this.cx,
++    required this.cy,
++  }) {
++    final cosYaw = math.cos(yaw);
++    final sinYaw = math.sin(yaw);
++    final cosPitch = math.cos(pitch);
++    final sinPitch = math.sin(pitch);
++    fwd = _V3(sinYaw * cosPitch, sinPitch, -cosYaw * cosPitch);
++    right = _V3(cosYaw, 0, sinYaw);
++    up = right.cross(fwd);
++  }
++
++  static const double near = 0.12;
++
++  final _V3 pos;
++  final double focal;
++  final double cx;
++  final double cy;
++
++  late final _V3 fwd;
++  late final _V3 right;
++  late final _V3 up;
++
++  /// Retourne null si le point est derrière la caméra.
++  _Pt? project(_V3 p) {
++    final d = p - pos;
++    final depth = d.dot(fwd);
++    if (depth < near) return null;
++    return _Pt(
++      cx + focal * d.dot(right) / depth,
++      cy - focal * d.dot(up) / depth,
++      depth,
++    );
++  }
++}
++
++/// Dessine la salle vue depuis un siège.
++///
++/// [animation] va de 0 (caméra en hauteur derrière le siège) à 1 (caméra posée
++/// à hauteur des yeux dans le siège, regard vers l'écran). Le peintre se
++/// redessine à chaque valeur de l'animation, sans reconstruire de widget.
++class Cinema3DPainter extends CustomPainter {
++  Cinema3DPainter({
++    required this.animation,
++    required this.row,
++    required this.col,
++    this.screenImage,
++  }) : super(repaint: animation);
++
++  final Animation<double> animation;
++
++  /// Rangée (0 = A) et numéro (à partir de 1) du siège sélectionné.
++  final int row;
++  final int col;
++
++  /// Image projetée sur l'écran (affiche ou fond du film). Facultative.
++  final ui.Image? screenImage;
++
++  // Couleurs des fauteuils (vus de dos, éclairés par l'écran).
++  static const Color _chairFace = Color(0xFF2B0508);
++  static const Color _chairBand = Color(0xFF450A0E);
++  static const Color _chairRim = Color(0xFF6A0E13);
++  static const Color _chairTop = Color(0xFF9B1D21);
++
++  // Siège sélectionné : vert menthe.
++  static const Color _selFace = Color(0xFF5CC389);
++  static const Color _selBand = Color(0xFF7ADEA3);
++  static const Color _selRim = Color(0xFF93EBB5);
++  static const Color _selTop = Color(0xFFB9F6D1);
++
++  static const Color _riser = Color(0xFF050304);
++  static const Color _background = Color(0xFF050406);
++
++  static const double _halfWidth = 0.285;
++  static const double _backBottom = 0.40;
++  static const double _backTop = 1.05;
++  static const double _backThickness = 0.12;
++  static const double _horizontalFov = 60 * math.pi / 180;
++
++  static final Expando<ui.ImageShader> _shaders = Expando<ui.ImageShader>();
++
++  /// Contour du dossier d'un fauteuil (coins supérieurs arrondis), en mètres,
++  /// relatif au centre du siège (x) et au sol de la rangée (y).
++  static final List<Offset> _faceOutline = _buildFaceOutline();
++
++  static List<Offset> _buildFaceOutline() {
++    const radius = 0.13;
++    const steps = 4;
++    final pts = <Offset>[
++      const Offset(-_halfWidth, _backBottom),
++      const Offset(-_halfWidth, _backTop - radius),
++    ];
++    for (var i = 1; i <= steps; i++) {
++      final a = math.pi - (math.pi / 2) * i / steps;
++      pts.add(
++        Offset(
++          -_halfWidth + radius + radius * math.cos(a),
++          _backTop - radius + radius * math.sin(a),
++        ),
++      );
++    }
++    for (var i = 0; i <= steps; i++) {
++      final a = math.pi / 2 - (math.pi / 2) * i / steps;
++      pts.add(
++        Offset(
++          _halfWidth - radius + radius * math.cos(a),
++          _backTop - radius + radius * math.sin(a),
++        ),
++      );
++    }
++    pts.add(const Offset(_halfWidth, _backBottom));
++    return pts;
++  }
++
++  @override
++  void paint(Canvas canvas, Size size) {
++    if (size.isEmpty) return;
++    final t = Curves.easeInOutCubic.transform(
++      animation.value.clamp(0.0, 1.0).toDouble(),
++    );
++
++    canvas.drawRect(Offset.zero & size, Paint()..color = _background);
++
++    final cam = _cameraFor(size, t);
++    final roll = _lerp(-0.12, 0.0, t);
++
++    canvas.save();
++    canvas.translate(cam.cx, cam.cy);
++    canvas.rotate(roll);
++    canvas.translate(-cam.cx, -cam.cy);
++
++    _paintScreen(canvas, cam);
++    for (var r = 0; r < CinemaLayout.rows; r++) {
++      _paintRow(canvas, size, cam, r);
++    }
++
++    canvas.restore();
++
++    // Halo vert au bas de l'écran une fois installé dans le siège.
++    if (t > 0.6) {
++      final alpha = ((t - 0.6) / 0.4) * 0.16;
++      final center = Offset(size.width / 2, size.height);
++      final rect = Rect.fromCircle(center: center, radius: size.width * 0.8);
++      canvas.drawRect(
++        rect,
++        Paint()
++          ..shader = ui.Gradient.radial(center, size.width * 0.8, [
++            const Color(0xFF7ADEA3).withAlpha((alpha * 255).round()),
++            const Color(0x007ADEA3),
++          ]),
++      );
++    }
++  }
++
++  double _lerp(double a, double b, double t) => a + (b - a) * t;
++
++  _Camera _cameraFor(Size size, double t) {
++    final x = CinemaLayout.seatX(col);
++    final z = CinemaLayout.rowDistance(row);
++    final floor = CinemaLayout.rowFloor(row);
++
++    // Arrivée : yeux dans le siège, regard dirigé vers le centre de l'écran.
++    final endPos = _V3(x, floor + 1.15, z + 0.05);
++    final endYaw = math.atan2(-x, z);
++    const endPitch = 0.07;
++
++    // Départ : en hauteur, derrière le siège, regard vers le bas.
++    final startPos = _V3(x * 0.55, floor + 3.0, z + 3.2);
++    final startYaw = endYaw * 0.35;
++    const startPitch = -0.30;
++
++    return _Camera(
++      pos: _V3(
++        _lerp(startPos.x, endPos.x, t),
++        _lerp(startPos.y, endPos.y, t),
++        _lerp(startPos.z, endPos.z, t),
++      ),
++      yaw: _lerp(startYaw, endYaw, t),
++      pitch: _lerp(startPitch, endPitch, t),
++      focal: size.width / 2 / math.tan(_horizontalFov / 2),
++      cx: size.width / 2,
++      cy: size.height * 0.40,
++    );
++  }
++
++  List<_Pt>? _projectAll(_Camera cam, Iterable<_V3> points) {
++    final out = <_Pt>[];
++    for (final p in points) {
++      final q = cam.project(p);
++      if (q == null) return null;
++      out.add(q);
++    }
++    return out;
++  }
++
++  Path _pathOf(List<_Pt> pts) {
++    final path = Path()..moveTo(pts.first.x, pts.first.y);
++    for (var i = 1; i < pts.length; i++) {
++      path.lineTo(pts[i].x, pts[i].y);
++    }
++    return path..close();
++  }
++
++  // ---------------------------------------------------------------------------
++  // Écran
++  // ---------------------------------------------------------------------------
++
++  void _paintScreen(Canvas canvas, _Camera cam) {
++    const gx = 10;
++    const gy = 6;
++    final halfW = CinemaLayout.screenWidth / 2;
++    final bottom = CinemaLayout.screenBottom;
++    final height = CinemaLayout.screenHeight;
++
++    final grid = <_Pt>[];
++    for (var j = 0; j <= gy; j++) {
++      for (var i = 0; i <= gx; i++) {
++        final u = i / gx;
++        final v = j / gy;
++        final p = cam.project(
++          _V3(-halfW + 2 * halfW * u, bottom + height * (1 - v), 0),
++        );
++        if (p == null) return;
++        grid.add(p);
++      }
++    }
++
++    final topLeft = grid[0];
++    final topRight = grid[gx];
++    final bottomLeft = grid[gy * (gx + 1)];
++    final bottomRight = grid[grid.length - 1];
++
++    // Lueur diffuse autour de l'écran.
++    final glowCenter = Offset(
++      (topLeft.x + topRight.x + bottomLeft.x + bottomRight.x) / 4,
++      (topLeft.y + topRight.y + bottomLeft.y + bottomRight.y) / 4,
++    );
++    final glowRadius = math.max(
++      (topRight.x - topLeft.x).abs(),
++      (bottomRight.x - bottomLeft.x).abs(),
++    );
++    if (glowRadius > 1) {
++      canvas.drawCircle(
++        glowCenter,
++        glowRadius,
++        Paint()
++          ..shader = ui.Gradient.radial(glowCenter, glowRadius, [
++            const Color(0x30D8C2AE),
++            const Color(0x00D8C2AE),
++          ]),
++      );
++    }
++
++    final image = screenImage;
++    if (image == null) {
++      final quad = Path()
++        ..moveTo(topLeft.x, topLeft.y)
++        ..lineTo(topRight.x, topRight.y)
++        ..lineTo(bottomRight.x, bottomRight.y)
++        ..lineTo(bottomLeft.x, bottomLeft.y)
++        ..close();
++      canvas.drawPath(
++        quad,
++        Paint()
++          ..shader = ui.Gradient.linear(
++            Offset((topLeft.x + topRight.x) / 2, topLeft.y),
++            Offset((bottomLeft.x + bottomRight.x) / 2, bottomLeft.y),
++            const [Color(0xFFD1BEB0), Color(0xFF6B5647)],
++          ),
++      );
++      return;
++    }
++
++    // Recadrage centré de l'image au format de l'écran.
++    final targetAspect = CinemaLayout.screenWidth / CinemaLayout.screenHeight;
++    final imgW = image.width.toDouble();
++    final imgH = image.height.toDouble();
++    var srcW = imgW;
++    var srcH = imgH;
++    if (imgW / imgH > targetAspect) {
++      srcW = imgH * targetAspect;
++    } else {
++      srcH = imgW / targetAspect;
++    }
++    final srcLeft = (imgW - srcW) / 2;
++    final srcTop = (imgH - srcH) / 2;
++
++    final positions = Float32List(grid.length * 2);
++    final texCoords = Float32List(grid.length * 2);
++    for (var j = 0; j <= gy; j++) {
++      for (var i = 0; i <= gx; i++) {
++        final index = j * (gx + 1) + i;
++        positions[index * 2] = grid[index].x;
++        positions[index * 2 + 1] = grid[index].y;
++        texCoords[index * 2] = srcLeft + srcW * (i / gx);
++        texCoords[index * 2 + 1] = srcTop + srcH * (j / gy);
++      }
++    }
++    final indices = Uint16List(gx * gy * 6);
++    var k = 0;
++    for (var j = 0; j < gy; j++) {
++      for (var i = 0; i < gx; i++) {
++        final a = j * (gx + 1) + i;
++        final b = a + 1;
++        final c = a + (gx + 1);
++        final d = c + 1;
++        indices[k++] = a;
++        indices[k++] = b;
++        indices[k++] = c;
++        indices[k++] = b;
++        indices[k++] = d;
++        indices[k++] = c;
++      }
++    }
++
++    final shader = _shaders[image] ??= ui.ImageShader(
++      image,
++      ui.TileMode.clamp,
++      ui.TileMode.clamp,
++      Float64List.fromList(const [
++        1, 0, 0, 0, //
++        0, 1, 0, 0, //
++        0, 0, 1, 0, //
++        0, 0, 0, 1, //
++      ]),
++      filterQuality: ui.FilterQuality.medium,
++    );
++    final vertices = ui.Vertices.raw(
++      ui.VertexMode.triangles,
++      positions,
++      textureCoordinates: texCoords,
++      indices: indices,
++    );
++    canvas.drawVertices(
++      vertices,
++      ui.BlendMode.srcOver,
++      Paint()..shader = shader,
++    );
++  }
++
++  // ---------------------------------------------------------------------------
++  // Rangées et fauteuils
++  // ---------------------------------------------------------------------------
++
++  void _paintRow(Canvas canvas, Size size, _Camera cam, int r) {
++    final z = CinemaLayout.rowDistance(r);
++    final floor = CinemaLayout.rowFloor(r);
++
++    // Contremarche pleine : masque ce qui se trouve derrière la rangée.
++    final riser = _projectAll(cam, [
++      _V3(-9, floor - 0.3, z),
++      _V3(9, floor - 0.3, z),
++      _V3(9, floor + _backBottom, z),
++      _V3(-9, floor + _backBottom, z),
++    ]);
++    if (riser != null) {
++      canvas.drawPath(_pathOf(riser), Paint()..color = _riser);
++    }
++
++    for (var c = 1; c <= CinemaLayout.columns; c++) {
++      final selected = r == row && c == col;
++      _paintChair(canvas, size, cam, r, c, selected);
++    }
++  }
++
++  void _paintChair(
++    Canvas canvas,
++    Size size,
++    _Camera cam,
++    int r,
++    int c,
++    bool selected,
++  ) {
++    final x = CinemaLayout.seatX(c);
++    final z = CinemaLayout.rowDistance(r);
++    final floor = CinemaLayout.rowFloor(r);
++
++    final face = _projectAll(
++      cam,
++      _faceOutline.map((p) => _V3(x + p.dx, floor + p.dy, z)),
++    );
++    if (face == null) return;
++
++    // Élimination des fauteuils entièrement hors du cadre.
++    var minX = double.infinity;
++    var maxX = -double.infinity;
++    var minY = double.infinity;
++    var maxY = -double.infinity;
++    for (final p in face) {
++      minX = math.min(minX, p.x);
++      maxX = math.max(maxX, p.x);
++      minY = math.min(minY, p.y);
++      maxY = math.max(maxY, p.y);
++    }
++    const margin = 80.0;
++    if (maxX < -margin ||
++        minX > size.width + margin ||
++        maxY < -margin ||
++        minY > size.height + margin) {
++      return;
++    }
++
++    // Fondu des fauteuils tout proches de la caméra (fin du vol).
++    final fade = math.min(1.0, math.max(0.0, (face.first.depth - 0.12) / 0.35));
++    if (fade < 0.02) return;
++
++    // Assombrissement avec la distance.
++    final fog = math.min(0.55, math.max(0.0, (face.first.depth - 2.0) / 16.0));
++    Color tone(Color base) {
++      final dimmed = selected
++          ? base
++          : (Color.lerp(base, const Color(0xFF000000), fog) ?? base);
++      return dimmed.withAlpha((255 * fade).round());
++    }
++
++    final paint = Paint()..isAntiAlias = true;
++
++    // Face arrière du dossier.
++    paint.color = tone(selected ? _selFace : _chairFace);
++    canvas.drawPath(_pathOf(face), paint);
++
++    // Bande médiane, légèrement plus claire.
++    final band = _projectAll(cam, [
++      _V3(x - _halfWidth, floor + _backTop - 0.50, z),
++      _V3(x + _halfWidth, floor + _backTop - 0.50, z),
++      _V3(x + _halfWidth, floor + _backTop - 0.17, z),
++      _V3(x - _halfWidth, floor + _backTop - 0.17, z),
++    ]);
++    if (band != null) {
++      paint.color = tone(selected ? _selBand : _chairBand);
++      canvas.drawPath(_pathOf(band), paint);
++    }
++
++    // Liseré sous le sommet du dossier.
++    final rim = _projectAll(cam, [
++      _V3(x - _halfWidth + 0.07, floor + _backTop - 0.11, z),
++      _V3(x + _halfWidth - 0.07, floor + _backTop - 0.11, z),
++      _V3(x + _halfWidth - 0.07, floor + _backTop - 0.01, z),
++      _V3(x - _halfWidth + 0.07, floor + _backTop - 0.01, z),
++    ]);
++    if (rim != null) {
++      paint.color = tone(selected ? _selRim : _chairRim);
++      canvas.drawPath(_pathOf(rim), paint);
++    }
++
++    // Dessus du dossier, visible uniquement si la caméra est plus haute.
++    if (cam.pos.y > floor + _backTop) {
++      final top = _projectAll(cam, [
++        _V3(x - _halfWidth + 0.04, floor + _backTop, z - _backThickness),
++        _V3(x + _halfWidth - 0.04, floor + _backTop, z - _backThickness),
++        _V3(x + _halfWidth - 0.04, floor + _backTop, z),
++        _V3(x - _halfWidth + 0.04, floor + _backTop, z),
++      ]);
++      if (top != null) {
++        paint.color = tone(selected ? _selTop : _chairTop);
++        canvas.drawPath(_pathOf(top), paint);
++      }
++    }
++  }
++
++  @override
++  bool shouldRepaint(Cinema3DPainter oldDelegate) =>
++      oldDelegate.row != row ||
++      oldDelegate.col != col ||
++      oldDelegate.screenImage != screenImage ||
++      oldDelegate.animation != animation;
++}
+diff --git a/lib/views/seat/seat_layout.dart b/lib/views/seat/seat_layout.dart
+new file mode 100644
+index 0000000..1ece246
+--- /dev/null
++++ b/lib/views/seat/seat_layout.dart
+@@ -0,0 +1,154 @@
++import 'dart:math' as math;
++
++/// Type de siège.
++enum SeatKind { standard, recliner }
++
++/// Qualité de la vue, affichée dans la feuille d'infos (UP CLOSE / SWEET SPOT /
++/// FULL PICTURE dans la vidéo de référence).
++enum SeatViewQuality { upClose, sweetSpot, fullPicture }
++
++/// Statistiques d'un siège, calculées à partir de la géométrie de la salle.
++class SeatStats {
++  const SeatStats({
++    required this.row,
++    required this.col,
++    required this.distance,
++    required this.fieldOfView,
++    required this.offset,
++    required this.quality,
++    required this.kind,
++  });
++
++  /// Index de rangée (0 = A, la plus proche de l'écran).
++  final int row;
++
++  /// Numéro de siège (1 à [CinemaLayout.columns]).
++  final int col;
++
++  /// Distance à l'écran, en mètres.
++  final double distance;
++
++  /// Angle sous lequel l'écran est vu, en degrés.
++  final int fieldOfView;
++
++  /// Décalage par rapport à l'axe central, en mètres (négatif = à gauche).
++  final double offset;
++
++  final SeatViewQuality quality;
++  final SeatKind kind;
++
++  String get id => CinemaLayout.seatId(row, col);
++
++  String get distanceLabel => '${distance.toStringAsFixed(1)} m';
++
++  String get offsetLabel => '${offset.abs().toStringAsFixed(1)} m';
++
++  String get offsetCaption {
++    if (offset.abs() < 0.05) return 'au centre';
++    return offset < 0 ? 'à gauche du centre' : 'à droite du centre';
++  }
++}
++
++/// Géométrie de la salle (en mètres) et conventions de numérotation.
++///
++/// Les identifiants de sièges gardent le format historique de l'application :
++/// lettre de rangée + numéro, par exemple `B4`. Le serveur et les réservations
++/// existantes restent donc compatibles.
++class CinemaLayout {
++  CinemaLayout._();
++
++  static const int rows = 9;
++  static const int columns = 14;
++
++  /// Répartition des sièges en blocs séparés par des allées (3 + 8 + 3).
++  static const List<int> blocks = [3, 8, 3];
++
++  /// Nombre de rangées « recliner » à l'arrière de la salle.
++  static const int reclinerRows = 2;
++
++  /// Écart entre deux sièges voisins.
++  static const double seatPitch = 0.63;
++
++  /// Décalage supplémentaire des blocs latéraux (largeur d'une allée).
++  static const double aisleExtra = 0.46;
++
++  static const double screenWidth = 11.4;
++  static const double screenHeight = 6.9;
++
++  /// Hauteur du bord bas de l'écran par rapport au sol de la première rangée.
++  static const double screenBottom = 1.9;
++
++  /// Dénivelé entre deux rangées successives (gradins).
++  static const double rake = 0.2;
++
++  static const double _firstRowDistance = 5.425;
++  static const double _standardRowGap = 0.875;
++  static const double _reclinerRowGap = 1.3125;
++
++  static String rowLetter(int row) => String.fromCharCode(65 + row);
++
++  /// Identifiant d'un siège. [col] commence à 1.
++  static String seatId(int row, int col) => '${rowLetter(row)}$col';
++
++  static SeatKind kindOfRow(int row) =>
++      row >= rows - reclinerRows ? SeatKind.recliner : SeatKind.standard;
++
++  /// Analyse un identifiant comme `B4`. Retourne null s'il est invalide ou
++  /// hors de la salle.
++  static ({int row, int col})? parse(String id) {
++    if (id.length < 2) return null;
++    final row = id.codeUnitAt(0) - 65;
++    final col = int.tryParse(id.substring(1));
++    if (col == null || row < 0 || row >= rows || col < 1 || col > columns) {
++      return null;
++    }
++    return (row: row, col: col);
++  }
++
++  /// Distance entre l'écran et la rangée, en mètres.
++  static double rowDistance(int row) {
++    var z = _firstRowDistance;
++    for (var i = 1; i <= row; i++) {
++      z += kindOfRow(i) == SeatKind.recliner
++          ? _reclinerRowGap
++          : _standardRowGap;
++    }
++    return z;
++  }
++
++  /// Hauteur du sol de la rangée.
++  static double rowFloor(int row) => row * rake;
++
++  /// Position latérale du siège par rapport à l'axe central (négatif = gauche).
++  static double seatX(int col) {
++    var x = (col - (columns + 1) / 2) * seatPitch;
++    if (col <= blocks.first) {
++      x -= aisleExtra;
++    } else if (col > columns - blocks.last) {
++      x += aisleExtra;
++    }
++    return x;
++  }
++
++  static SeatStats statsFor(int row, int col) {
++    final distance = rowDistance(row);
++    final fov = 2 * math.atan((screenWidth / 2) / distance) * 180 / math.pi;
++    final SeatViewQuality quality;
++    if (distance <= 7.5) {
++      quality = SeatViewQuality.upClose;
++    } else if (distance <= 11.0) {
++      quality = SeatViewQuality.sweetSpot;
++    } else {
++      quality = SeatViewQuality.fullPicture;
++    }
++    return SeatStats(
++      row: row,
++      col: col,
++      distance: distance,
++      fieldOfView: fov.round(),
++      offset: seatX(col),
++      quality: quality,
++      kind: kindOfRow(row),
++    );
++  }
++}
+diff --git a/lib/views/seat/seat_widgets.dart b/lib/views/seat/seat_widgets.dart
+new file mode 100644
+index 0000000..275e82c
+--- /dev/null
++++ b/lib/views/seat/seat_widgets.dart
+@@ -0,0 +1,436 @@
++import 'dart:math' as math;
++import 'dart:ui' as ui;
++
++import 'package:flutter/material.dart';
++
++import 'seat_layout.dart';
++
++/// Palette de l'écran de choix du siège (reprise de la vidéo de référence).
++class SeatPalette {
++  SeatPalette._();
++
++  static const Color background = Color(0xFF0A090C);
++  static const Color surface = Color(0xFF111013);
++  static const Color chipBar = Color(0xFF141316);
++  static const Color chipSelected = Color(0xFFF2F0EC);
++  static const Color sheet = Color(0xFF171114);
++  static const Color tile = Color(0xFF1F181B);
++  static const Color seatAvailable = Color(0xFF29282D);
++  static const Color seatTakenBorder = Color(0xFF38373D);
++  static const Color recliner = Color(0xFF4A282F);
++  static const Color reclinerTakenBorder = Color(0xFF4A282F);
++  static const Color selected = Color(0xFF7ADEA3);
++  static const Color onSelected = Color(0xFF0B1A12);
++  static const Color muted = Color(0xFF8E8D93);
++  static const Color faint = Color(0xFF4A494E);
++  static const Color buttonLight = Color(0xFFE5E3DF);
++}
++
++/// Style de texte basé sur le thème de l'application (donc sur sa police).
++TextStyle seatText(
++  BuildContext context, {
++  double size = 14,
++  FontWeight weight = FontWeight.w400,
++  Color color = Colors.white,
++  double? letterSpacing,
++  double? height,
++}) {
++  final base = Theme.of(context).textTheme.bodyMedium ?? const TextStyle();
++  return base.copyWith(
++    fontSize: size,
++    fontWeight: weight,
++    color: color,
++    letterSpacing: letterSpacing,
++    height: height,
++  );
++}
++
++// -----------------------------------------------------------------------------
++// Écran (arc lumineux)
++// -----------------------------------------------------------------------------
++
++class ScreenArc extends StatelessWidget {
++  const ScreenArc({super.key});
++
++  @override
++  Widget build(BuildContext context) {
++    return SizedBox(
++      height: 84,
++      width: double.infinity,
++      child: Stack(
++        children: [
++          Positioned.fill(child: CustomPaint(painter: _ScreenArcPainter())),
++          Align(
++            alignment: const Alignment(0, 0.55),
++            child: Text(
++              'ÉCRAN',
++              style: seatText(
++                context,
++                size: 9,
++                weight: FontWeight.w500,
++                color: SeatPalette.faint,
++                letterSpacing: 4,
++              ),
++            ),
++          ),
++        ],
++      ),
++    );
++  }
++}
++
++class _ScreenArcPainter extends CustomPainter {
++  @override
++  void paint(Canvas canvas, Size size) {
++    final w = size.width;
++    final h = size.height;
++    final arc = Path()
++      ..moveTo(0, h * 0.62)
++      ..quadraticBezierTo(w / 2, -h * 0.25, w, h * 0.62);
++
++    // Lumière projetée sous l'arc.
++    final glow = Path.from(arc)
++      ..lineTo(w, h)
++      ..lineTo(0, h)
++      ..close();
++    canvas.drawPath(
++      glow,
++      Paint()
++        ..shader = ui.Gradient.linear(Offset(0, h * 0.18), Offset(0, h), const [
++          Color(0x1FFFFFFF),
++          Color(0x00FFFFFF),
++        ]),
++    );
++
++    // Halo de l'arc.
++    final stroke = ui.Gradient.linear(
++      Offset.zero,
++      Offset(w, 0),
++      const [Color(0x00FFFFFF), Color(0xFFFFFFFF), Color(0x00FFFFFF)],
++      const [0.0, 0.5, 1.0],
++    );
++    canvas.drawPath(
++      arc,
++      Paint()
++        ..style = PaintingStyle.stroke
++        ..strokeWidth = 7
++        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6)
++        ..shader = stroke,
++    );
++    canvas.drawPath(
++      arc,
++      Paint()
++        ..style = PaintingStyle.stroke
++        ..strokeWidth = 1.6
++        ..shader = stroke,
++    );
++  }
++
++  @override
++  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
++}
++
++// -----------------------------------------------------------------------------
++// Plan de salle
++// -----------------------------------------------------------------------------
++
++class SeatMap extends StatelessWidget {
++  const SeatMap({
++    super.key,
++    required this.reservedSeats,
++    required this.selectedSeat,
++    required this.onSeatTap,
++  });
++
++  final Set<String> reservedSeats;
++  final String? selectedSeat;
++  final ValueChanged<String> onSeatTap;
++
++  static const double _labelWidth = 18;
++  static const double _horizontalPadding = 20;
++  static const double _aisleUnits = 0.9;
++
++  bool _isAisleAfter(int col) {
++    final blocks = CinemaLayout.blocks;
++    var end = 0;
++    for (var i = 0; i < blocks.length - 1; i++) {
++      end += blocks[i];
++      if (col == end) return true;
++    }
++    return false;
++  }
++
++  @override
++  Widget build(BuildContext context) {
++    return LayoutBuilder(
++      builder: (context, constraints) {
++        final available =
++            constraints.maxWidth - 2 * _horizontalPadding - _labelWidth;
++        final aisleCount = CinemaLayout.blocks.length - 1;
++        final unit =
++            available / (CinemaLayout.columns + aisleCount * _aisleUnits);
++        final seatSize = unit * 0.7;
++        final aisle = unit * _aisleUnits;
++        var rowHeight = unit * 1.6;
++        if (constraints.hasBoundedHeight) {
++          rowHeight = math.min(
++            rowHeight,
++            constraints.maxHeight / CinemaLayout.rows,
++          );
++        }
++
++        return Column(
++          mainAxisAlignment: MainAxisAlignment.center,
++          children: [
++            for (var r = 0; r < CinemaLayout.rows; r++)
++              SizedBox(
++                height: rowHeight,
++                child: Row(
++                  mainAxisAlignment: MainAxisAlignment.center,
++                  children: [
++                    SizedBox(
++                      width: _labelWidth,
++                      child: Text(
++                        CinemaLayout.rowLetter(r),
++                        style: seatText(
++                          context,
++                          size: 9,
++                          weight: FontWeight.w500,
++                          color: SeatPalette.faint,
++                        ),
++                      ),
++                    ),
++                    for (var c = 1; c <= CinemaLayout.columns; c++) ...[
++                      _buildSeat(context, r, c, unit, seatSize, rowHeight),
++                      if (_isAisleAfter(c)) SizedBox(width: aisle),
++                    ],
++                  ],
++                ),
++              ),
++          ],
++        );
++      },
++    );
++  }
++
++  Widget _buildSeat(
++    BuildContext context,
++    int r,
++    int c,
++    double unit,
++    double seatSize,
++    double rowHeight,
++  ) {
++    final id = CinemaLayout.seatId(r, c);
++    final taken = reservedSeats.contains(id);
++    final isSelected = selectedSeat == id;
++    final recliner = CinemaLayout.kindOfRow(r) == SeatKind.recliner;
++
++    final BoxDecoration decoration;
++    if (isSelected) {
++      decoration = BoxDecoration(
++        color: SeatPalette.selected,
++        borderRadius: BorderRadius.circular(seatSize * 0.3),
++        boxShadow: const [
++          BoxShadow(color: Color(0x667ADEA3), blurRadius: 12, spreadRadius: 1),
++        ],
++      );
++    } else if (taken) {
++      decoration = BoxDecoration(
++        borderRadius: BorderRadius.circular(seatSize * 0.3),
++        border: Border.all(
++          color: recliner
++              ? SeatPalette.reclinerTakenBorder
++              : SeatPalette.seatTakenBorder,
++          width: 1.2,
++        ),
++      );
++    } else {
++      decoration = BoxDecoration(
++        color: recliner ? SeatPalette.recliner : SeatPalette.seatAvailable,
++        borderRadius: BorderRadius.circular(seatSize * 0.3),
++      );
++    }
++
++    final seatLabel = '${CinemaLayout.rowLetter(r)}$c';
++    return Semantics(
++      button: !taken,
++      selected: isSelected,
++      label: taken
++          ? 'Siège $seatLabel, occupé'
++          : recliner
++          ? 'Siège $seatLabel, recliner'
++          : 'Siège $seatLabel',
++      child: GestureDetector(
++        behavior: HitTestBehavior.opaque,
++        onTap: taken ? null : () => onSeatTap(id),
++        child: SizedBox(
++          width: unit,
++          height: rowHeight,
++          child: Center(
++            child: AnimatedContainer(
++              duration: const Duration(milliseconds: 180),
++              curve: Curves.easeOut,
++              width: seatSize,
++              height: seatSize,
++              decoration: decoration,
++              alignment: Alignment.center,
++              child: isSelected
++                  ? Text(
++                      '$c',
++                      style: seatText(
++                        context,
++                        size: seatSize * 0.52,
++                        weight: FontWeight.w700,
++                        color: SeatPalette.onSelected,
++                        height: 1,
++                      ),
++                    )
++                  : null,
++            ),
++          ),
++        ),
++      ),
++    );
++  }
++}
++
++// -----------------------------------------------------------------------------
++// Légende
++// -----------------------------------------------------------------------------
++
++class SeatLegend extends StatelessWidget {
++  const SeatLegend({super.key});
++
++  @override
++  Widget build(BuildContext context) {
++    return Row(
++      mainAxisAlignment: MainAxisAlignment.center,
++      children: [
++        _item(context, 'Disponible', fill: SeatPalette.seatAvailable),
++        const SizedBox(width: 14),
++        _item(context, 'Occupé', border: SeatPalette.seatTakenBorder),
++        const SizedBox(width: 14),
++        _item(context, 'Recliner', fill: SeatPalette.recliner),
++        const SizedBox(width: 14),
++        _item(context, 'Sélectionné', fill: SeatPalette.selected),
++      ],
++    );
++  }
++
++  Widget _item(
++    BuildContext context,
++    String label, {
++    Color? fill,
++    Color? border,
++  }) {
++    return Row(
++      mainAxisSize: MainAxisSize.min,
++      children: [
++        Container(
++          width: 9,
++          height: 9,
++          decoration: BoxDecoration(
++            color: fill,
++            borderRadius: BorderRadius.circular(3),
++            border: border == null ? null : Border.all(color: border, width: 1),
++          ),
++        ),
++        const SizedBox(width: 5),
++        Text(
++          label,
++          style: seatText(context, size: 10, color: SeatPalette.muted),
++        ),
++      ],
++    );
++  }
++}
++
++// -----------------------------------------------------------------------------
++// Mini-plan (feuille d'infos de la vue 3D)
++// -----------------------------------------------------------------------------
++
++class MiniSeatMap extends StatelessWidget {
++  const MiniSeatMap({super.key, required this.row, required this.col});
++
++  final int row;
++  final int col;
++
++  @override
++  Widget build(BuildContext context) {
++    return SizedBox(
++      width: 72,
++      height: 58,
++      child: CustomPaint(
++        painter: _MiniMapPainter(row: row, col: col),
++      ),
++    );
++  }
++}
++
++class _MiniMapPainter extends CustomPainter {
++  _MiniMapPainter({required this.row, required this.col});
++
++  final int row;
++  final int col;
++
++  @override
++  void paint(Canvas canvas, Size size) {
++    final w = size.width;
++    final h = size.height;
++
++    // Arc de l'écran.
++    final arc = Path()
++      ..moveTo(2, 7)
++      ..quadraticBezierTo(w / 2, -3, w - 2, 7);
++    canvas.drawPath(
++      arc,
++      Paint()
++        ..style = PaintingStyle.stroke
++        ..strokeWidth = 1.2
++        ..color = const Color(0xCCFFFFFF),
++    );
++
++    const aisleUnits = 0.9;
++    final blocks = CinemaLayout.blocks;
++    final unit =
++        (w - 4) / (CinemaLayout.columns + (blocks.length - 1) * aisleUnits);
++    const top = 14.0;
++    final rowStep = (h - top - 2) / (CinemaLayout.rows - 1);
++
++    final dot = Paint();
++    for (var r = 0; r < CinemaLayout.rows; r++) {
++      final y = top + r * rowStep;
++      var x = 2 + unit / 2;
++      var blockEnd = blocks.first;
++      var blockIndex = 0;
++      for (var c = 1; c <= CinemaLayout.columns; c++) {
++        final isSelected = r == row && c == col;
++        if (isSelected) {
++          canvas.drawCircle(
++            Offset(x, y),
++            4.2,
++            Paint()..color = const Color(0x557ADEA3),
++          );
++          dot.color = SeatPalette.selected;
++          canvas.drawCircle(Offset(x, y), 2.2, dot);
++        } else {
++          dot.color = CinemaLayout.kindOfRow(r) == SeatKind.recliner
++              ? const Color(0xFF5E3139)
++              : const Color(0xFF3A383D);
++          canvas.drawCircle(Offset(x, y), 1.25, dot);
++        }
++        x += unit;
++        if (c == blockEnd && blockIndex < blocks.length - 1) {
++          x += unit * aisleUnits;
++          blockIndex++;
++          blockEnd += blocks[blockIndex];
++        }
++      }
++    }
++  }
++
++  @override
++  bool shouldRepaint(covariant _MiniMapPainter oldDelegate) =>
++      oldDelegate.row != row || oldDelegate.col != col;
++}
